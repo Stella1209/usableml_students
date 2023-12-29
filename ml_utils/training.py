@@ -3,15 +3,22 @@ import sys
 sys.path.append("ml_utils")
 
 import numpy as np
-import torch
 from torch import manual_seed, Tensor
 from torch.cuda import empty_cache
 from torch.nn import Module, functional as F
 from torch.optim import Optimizer, SGD
 
-from data import get_data_loaders
-from evaluate import accuracy
-from model import ConvolutionalNeuralNetwork
+try:
+    from ml_utils.data import get_data_loaders
+    from ml_utils.evaluate import accuracy
+    from ml_utils.model import ConvolutionalNeuralNetwork
+except:
+    from data import get_data_loaders
+    from evaluate import accuracy
+    from model import ConvolutionalNeuralNetwork
+
+from torchvision import models
+from torchsummary import summary
 
 
 def train_step(model: Module, optimizer: Optimizer, data: Tensor,
@@ -45,7 +52,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
             q_acc.put(test_acc)
         if q_loss is not None:
             q_loss.put(test_loss)
-        if q_stop_signal is not None:
+        if q_stop_signal is not None and q_stop_signal.qsize() > 0:
             stop_signal = q_stop_signal.get()
         print(f"epoch{epoch} is done!")
         # print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
