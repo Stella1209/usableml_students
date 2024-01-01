@@ -11,7 +11,7 @@ from torch.optim import Optimizer, SGD
 
 from data import get_data_loaders
 from evaluate import accuracy
-from model import ConvolutionalNeuralNetwork
+from model import Adjustable_model
 
 
 def train_step(model: Module, optimizer: Optimizer, data: Tensor,
@@ -88,14 +88,14 @@ def main(seed):
     print("init...")
     manual_seed(seed)
     np.random.seed(seed)
-    model = ConvolutionalNeuralNetwork()
+    model = Adjustable_model()
     opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
     print("train...")
     training(
         model=model,
         optimizer=opt,
         cuda=False,     # change to True to run on nvidia gpu
-        n_epochs=10,
+        n_epochs=3,
         batch_size=256,
     )
 
