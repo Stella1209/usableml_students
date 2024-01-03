@@ -22,6 +22,7 @@ import time
 import datetime
 import plotly.express as px
 import numpy as np
+import pandas as pd
 
 
 # app = Flask(__name__)
@@ -46,6 +47,10 @@ q_loss = queue.Queue()
 q_stop_signal = queue.Queue()
 q_epoch = queue.Queue()
 q_loss_img = queue.Queue()
+
+accs = []
+losses = []
+epochs = []
 
 
 
@@ -268,22 +273,37 @@ def get_accuracy():
     return acc
 
 def get_statistics():
-    global loss, q_loss, acc, q_acc, epoch, q_epoch
+    global loss, q_loss, acc, q_acc, epoch, q_epoch, accs, losses, epochs
     if q_loss is not None and q_loss.qsize() > 0:
         loss = q_loss.get()
         q_loss.task_done()
+        losses.append(loss)
     if q_acc is not None and q_acc.qsize() > 0:
         acc = q_acc.get()
         q_acc.task_done()
+        accs.append(acc)
     if q_epoch is not None and q_epoch.qsize() > 0:
         epoch = q_epoch.get()
         q_epoch.task_done()
+        epochs.append(epoch)
     return f"""
     Epoch: \t {epoch}\n
     Accuracy: \t {acc}\n
     Loss: \t {loss}
 """
 #str("Epoch:         " + str(epoch) + "\n" + "Accuracy:      " + str(acc) + "\n" + "Loss:          " + str(loss))
+
+def make_plot():
+    global accs, losses
+    epochs = []
+    max_len = min([len(accs), len(losses)])
+    for j in range(2):
+        for i in range(max_len):
+            epochs.append(i + 1)
+    #plot = gr.LinePlot(value=pd.DataFrame({"Epoch": epochs, "Accuracy": accs, "Loss": losses}), x="Epoch", y="Accuracy")
+    plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Epochs": epochs}), x="Epochs", y="Values", color="Labels")
+    return plot
+
 
 
 with gr.Blocks() as demo:
@@ -319,7 +339,7 @@ with gr.Blocks() as demo:
             with gr.Column():
                 with gr.Tab("Training"):
                     gr.Markdown("Training")
-                    gr.LinePlot()
+                    training_plot = gr.LinePlot()
                     #out_accuracy = gr.Textbox(label="Accuracy")
                     #out_loss = gr.Textbox(label="Loss")
                     training_info = gr.Markdown()
@@ -354,10 +374,12 @@ The deviation between the result and the reference image is mathematically recor
     #demo.load(get_accuracy, None, out_accuracy, every=1)
     #demo.load(get_loss, None, out_loss, every=1)
     demo.load(get_statistics, None, training_info, every=1)
+    demo.load(make_plot, None, training_plot, every=1)
     #demo.load(listener, None, None, every=1)
     #dep1 = demo.load(get_accuracy, None, None, every=0.5)
     #dep2 = demo.load(get_loss, None, None, every=0.5)
     dep1 = demo.load(get_statistics, None, None, every=0.5)
+    dep2 = demo.load(make_plot, None, None, every=0.5)
     #dep3 = demo.load(listener, None, None, every=0.5)
     
     #period.change(get_accuracy_once, None, None, every=0.5, cancels=[dep])
