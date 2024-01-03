@@ -267,31 +267,97 @@ def get_accuracy():
         q_acc.task_done()
     return acc
 
-with gr.Blocks() as demo:
-    with gr.Row():
-        with gr.Column():
-            out_accuracy = gr.Textbox(label="Accuracy")
-            out_loss = gr.Textbox(label="Loss")
-            in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
-            #gr.Markdown("Change the value of the slider to automatically update the plot")
-        with gr.Column():
-            gr.Markdown("Training")
-            with gr.Row():
-                with gr.Column(min_width=100):
-                    button = gr.Button(value="Start")
-                    button.click(start_training, inputs=[in_seed], outputs=None)
-                with gr.Column(min_width=100):
-                    button = gr.Button(value="Stop")
-                    button.click(stop_training, inputs=None, outputs=None)
-                with gr.Column(min_width=100):
-                    button = gr.Button(value="Continue")
-                    button.click(resume_training, inputs=None, outputs=None)
+def get_statistics():
+    global loss, q_loss, acc, q_acc, epoch, q_epoch
+    if q_loss is not None and q_loss.qsize() > 0:
+        loss = q_loss.get()
+        q_loss.task_done()
+    if q_acc is not None and q_acc.qsize() > 0:
+        acc = q_acc.get()
+        q_acc.task_done()
+    if q_epoch is not None and q_epoch.qsize() > 0:
+        epoch = q_epoch.get()
+        q_epoch.task_done()
+    return f"""
+    Epoch: \t {epoch}\n
+    Accuracy: \t {acc}\n
+    Loss: \t {loss}
+"""
+#str("Epoch:         " + str(epoch) + "\n" + "Accuracy:      " + str(acc) + "\n" + "Loss:          " + str(loss))
 
-    demo.load(get_accuracy, None, out_accuracy, every=1)
-    demo.load(get_loss, None, out_loss, every=1)
+
+with gr.Blocks() as demo:
+    with gr.Tab("Train/Test"):
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("Select Model & Dataset")
+                gr.Dropdown(label="Select Model")
+                gr.Dropdown(label="Dataset")
+                gr.FileExplorer("**/*.ckpt")
+                gr.Markdown("Create Model")
+                gr.Dropdown(label="Model Type")
+                gr.Slider(label="Number of Layers")
+                gr.Slider(label="Kernel Size")
+                gr.Button(value="Create Model")
+            with gr.Column():
+                gr.Markdown("Adjustable Parameters")
+                gr.Slider(label="Learning Rate")
+                gr.Slider(label="Batch Size")
+                in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
+                gr.Slider(label="Epochs/Training Steps")
+                gr.Dropdown(label="Loss Function")
+                with gr.Row():
+                    with gr.Column(min_width=100):
+                        button = gr.Button(value="Start")
+                        button.click(start_training, inputs=[in_seed], outputs=None)
+                    with gr.Column(min_width=100):
+                        button = gr.Button(value="Stop")
+                        button.click(stop_training, inputs=None, outputs=None)
+                    with gr.Column(min_width=100):
+                        button = gr.Button(value="Continue")
+                        button.click(resume_training, inputs=None, outputs=None)
+            with gr.Column():
+                with gr.Tab("Training"):
+                    gr.Markdown("Training")
+                    gr.LinePlot()
+                    #out_accuracy = gr.Textbox(label="Accuracy")
+                    #out_loss = gr.Textbox(label="Loss")
+                    training_info = gr.Markdown()
+                    gr.Markdown("Analysis")
+                    gr.Markdown("...")
+                with gr.Tab("Testing"):
+                    gr.Markdown("Test Result")
+                    gr.Image(label="Input")
+                    gr.Button(value="Select random Image")
+                    gr.Image(label="Output")
+                    gr.Markdown("Label: ...")
+
+    
+    with gr.Tab("Info"):
+        gr.Markdown(
+"""
+Introduction to Machine Learning\n\n
+In order to explain the term machine learning, we must first deal with the term artificial intelligence. Artificial intelligence is a scientific discipline that focuses on the research and algorithmization of preferably human intelligence in the form of automatically usable perception and "mind power".\n\n
+"Artificial intelligence is the study of computational methods that make it possible to perceive, reason and act."\n\n
+Artificial intelligence (AI for short) is therefore a machine that can replicate the cognitive abilities of a human being, i.e. automates human intelligence. Philosophers and psychologists have been discussing what exactly intelligence is for thousands of years, but the ability to learn is a generally recognized component.\n
+This brings us to the next term, "machine learning". Just as a person only becomes intelligent through lifelong learning, a machine only becomes intelligent through learning.\n\n
+"[Machine] learning is the construction of computer programs that automatically improve through experience"\n\n
+The advantage of using learning processes is that machines learn independently how best to solve certain problems. This is particularly advantageous if the problem cannot be described in concrete terms or can vary so much that there is no clearly definable solution.\n
+Trainable programs are often implemented in the form of neural networks. They are modeled on the human brain, which also consists of neurons. Neural networks can be thought of as networks of neurons, i.e. information points, into which an input for a problem can be entered, which is then processed by the neurons and which then outputs a result that is closer to the desired result than the input or ideally corresponds exactly to the desired result. If the result was good, the neurons are calibrated so that they deliver more similar results. If the result was poor, they are calibrated so that they produce different results.\n
+Training data is essential for such training. This includes various cases of the problem to be solved in a form that the computer can understand. There must also be a way of validating the results so that the neurons can be calibrated correctly.\n
+In the case of image-to-image processing, there is one image that is processed and one that corresponds to the desired result. The image generated by the neural network from the input is then compared with the reference image.\n
+The deviation between the result and the reference image is mathematically recorded in a value known as a "loss". The neural network calibrates its neurons depending on the amount of the loss, so that large changes are made if the loss is large, i.e. the generated result deviates greatly from the reference image, and small changes are made if the loss is small, i.e. the generated result is similar to the reference image. In this way, the neurons are calibrated in the long term so that the neural network achieves better and better results.\n
+"""
+)
+
+
+    #demo.load(get_accuracy, None, out_accuracy, every=1)
+    #demo.load(get_loss, None, out_loss, every=1)
+    demo.load(get_statistics, None, training_info, every=1)
     #demo.load(listener, None, None, every=1)
-    dep1 = demo.load(get_accuracy, None, None, every=0.5)
-    dep2 = demo.load(get_loss, None, None, every=0.5)
+    #dep1 = demo.load(get_accuracy, None, None, every=0.5)
+    #dep2 = demo.load(get_loss, None, None, every=0.5)
+    dep1 = demo.load(get_statistics, None, None, every=0.5)
     #dep3 = demo.load(listener, None, None, every=0.5)
     
     #period.change(get_accuracy_once, None, None, every=0.5, cancels=[dep])
