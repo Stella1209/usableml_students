@@ -14,7 +14,7 @@ from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
 
 from ml_utils.model import ConvolutionalNeuralNetwork
-from ml_utils.training import training
+from ml_utils.training import training, load_checkpoint
 
 import math
 import gradio as gr
@@ -82,47 +82,55 @@ def index():
                            loss=loss, loss_plot = loss_img_url, lr=lr, n_epochs=n_epochs, batch_size=batch_size)
 
 # @app.route("/start_training", methods=["POST"])
-def start_training(seed):
+def start_training(seed, learning_rate, batch_size, n_epochs):
     print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
-    global q_acc, q_loss, stop_signal, epoch, epoch_losses, loss, lr, n_epochs, batch_size
+    global q_acc, q_loss, stop_signal, epoch, epoch_losses, loss
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
     # initialize training
     model = ConvolutionalNeuralNetwork()
-    opt = SGD(model.parameters(), lr=lr, momentum=0.5)
-    print(seed)
-    print(lr)
-    print(n_epochs)
-    print(batch_size)
+    opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    #print(seed)
+    #print(learning_rate)
+    #print(n_epochs)
+    #print(batch_size)
     # execute training
     training(model=model,
              optimizer=opt,
              cuda=False,
              n_epochs=n_epochs,
              start_epoch=0,
-             batch_size=256,
+             batch_size=batch_size,
              q_acc=q_acc,
              q_loss=q_loss,
              q_epoch=q_epoch,
              q_stop_signal=q_stop_signal)
-    return jsonify({"success": True})
+    return #jsonify({"success": True})
 
 # @app.route("/stop_training", methods=["POST"])
 def stop_training():
-    global stop_signal
+    global stop_signal, q_stop_signal
+    if q_stop_signal is not None:
+        q_stop_signal.put(True)
     stop_signal = True  # Set the stop signal to True
     # saveCheckpoint()
-    return jsonify({"success": True})
+    return #jsonify({"success": True})
 
 # @app.route("/resume_training", methods=["POST"])
-def resume_training():
+def resume_training(seed, learning_rate, batch_size, n_epochs):
     global stop_signal
+
+    manual_seed(seed)
+    np.random.seed(seed)
+
     path = "stop.pt"
+    if q_stop_signal is not None:
+        q_stop_signal.put(False)
     stop_signal = False  # Set the stop signal to False
     model = ConvolutionalNeuralNetwork()
-    opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
+    opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     # checkpoint = torch.load(PATH)
     checkpoint = load_checkpoint(model, path)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -137,7 +145,7 @@ def resume_training():
              q_loss=q_loss,
              q_epoch=q_epoch,
              q_stop_signal=q_stop_signal)
-    return jsonify({"success": True})
+    return #jsonify({"success": True})
 
 # @app.route("/loss_plot", methods=["GET"])
 # loss_plot is for the display at endpoint /loss_plot while loss_plot_2 is for the display at index.html
@@ -294,13 +302,13 @@ def get_statistics():
 
 def make_plot():
     global accs, losses
-    epochs = []
+    training_steps = []
     max_len = min([len(accs), len(losses)])
     for j in range(2):
         for i in range(max_len):
-            epochs.append(i + 1)
-    #plot = gr.LinePlot(value=pd.DataFrame({"Epoch": epochs, "Accuracy": accs, "Loss": losses}), x="Epoch", y="Accuracy")
-    plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Epochs": epochs}), x="Epochs", y="Values", color="Labels")
+            training_steps.append(i + 1)
+    #plot = gr.LinePlot(value=pd.DataFrame({"Epoch": training_steps, "Accuracy": accs, "Loss": losses}), x="Epoch", y="Accuracy")
+    plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Training Steps": training_steps}), x="Training Steps", y="Values", color="Labels")
     return plot
 
 
@@ -320,21 +328,21 @@ with gr.Blocks() as demo:
                 gr.Button(value="Create Model")
             with gr.Column():
                 gr.Markdown("Adjustable Parameters")
-                gr.Slider(label="Learning Rate")
-                gr.Slider(label="Batch Size")
+                in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
+                in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
                 in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
-                gr.Slider(label="Epochs/Training Steps")
+                in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=100, step=1)
                 gr.Dropdown(label="Loss Function")
                 with gr.Row():
                     with gr.Column(min_width=100):
-                        button = gr.Button(value="Start")
-                        button.click(start_training, inputs=[in_seed], outputs=None)
+                        button_start = gr.Button(value="Start")
+                        button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                     with gr.Column(min_width=100):
-                        button = gr.Button(value="Stop")
-                        button.click(stop_training, inputs=None, outputs=None)
+                        button_stop = gr.Button(value="Stop")
+                        button_stop.click(stop_training, inputs=None, outputs=None)
                     with gr.Column(min_width=100):
-                        button = gr.Button(value="Continue")
-                        button.click(resume_training, inputs=None, outputs=None)
+                        button_continue = gr.Button(value="Continue")
+                        button_continue.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
             with gr.Column():
                 with gr.Tab("Training"):
                     gr.Markdown("Training")
@@ -372,14 +380,14 @@ The deviation between the result and the reference image is mathematically recor
 
     #demo.load(get_accuracy, None, out_accuracy, every=1)
     #demo.load(get_loss, None, out_loss, every=1)
-    demo.load(get_statistics, None, training_info, every=1)
-    demo.load(make_plot, None, training_plot, every=1)
+    dep1 = demo.load(get_statistics, None, training_info, every=0.5)
+    dep2 = demo.load(make_plot, None, training_plot, every=0.5)
     #demo.load(listener, None, None, every=1)
     #dep1 = demo.load(get_accuracy, None, None, every=0.5)
     #dep2 = demo.load(get_loss, None, None, every=0.5)
-    dep1 = demo.load(get_statistics, None, None, every=0.5)
-    dep2 = demo.load(make_plot, None, None, every=0.5)
     #dep3 = demo.load(listener, None, None, every=0.5)
+
+    #button_stop.click(None, None, None, cancels=[dep1, dep2])
     
     #period.change(get_accuracy_once, None, None, every=0.5, cancels=[dep])
     #dep = demo.load(get_plot, None, plot, every=0.5)

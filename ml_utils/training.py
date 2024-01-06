@@ -3,6 +3,7 @@ import sys
 sys.path.append("ml_utils")
 
 import numpy as np
+import torch
 from torch import manual_seed, Tensor
 from torch.cuda import empty_cache
 from torch.nn import Module, functional as F
@@ -19,7 +20,8 @@ except:
 
 from torchvision import models
 from torchsummary import summary
-
+import warnings
+warnings.filterwarnings('ignore')
 
 def train_step(model: Module, optimizer: Optimizer, data: Tensor,
                target: Tensor, cuda: bool):
@@ -47,18 +49,21 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
             data, target = batch
             train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
                        target=target)
-        test_loss, test_acc = accuracy(model, test_loader, cuda)
-        if q_acc is not None:
-            q_acc.put(test_acc)
-        if q_loss is not None:
-            q_loss.put(test_loss)
-        if q_stop_signal is not None and q_stop_signal.qsize() > 0:
-            stop_signal = q_stop_signal.get()
+            test_loss, test_acc = accuracy(model, test_loader, cuda)
+            if q_acc is not None:
+                q_acc.put(test_acc)
+            if q_loss is not None:
+                q_loss.put(test_loss)
+            if q_stop_signal is not None and q_stop_signal.qsize() > 0:
+                print("queue checked")
+                stop_signal = q_stop_signal.get()
+                q_stop_signal.task_done()
         print(f"epoch{epoch} is done!")
         # print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
         if stop_signal:
             save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
-            print(f"The checkpoint for epoch: {epoch} is saved!")
+            #print(f"The checkpoint for epoch: {epoch} is saved!")
+            print("successfully stopped")
             break
     if cuda:
         empty_cache()
