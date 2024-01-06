@@ -4,16 +4,16 @@
 This repository is for the 'Usable ML' software project course at FU Berlin, provided by Fraunhofer AISEC.
 Students will develop a graphical user interface that allows creating machine learning models and manipulating them. Possible features include:
 - **Training Interface**
-  - **start training**
-  - **interrupt training**
-  - **continue training**
-  - **adjust parameters** (e.g., **learning rate**, **loss function**, momentum, dropout-rate) (0.5 P)
-    - **before the training**
+  - **start training** (done)
+  - **interrupt training** (done)
+  - **continue training** (done)
+  - **adjust parameters** (e.g., **learning rate**, **loss function**, momentum, dropout-rate) (0.5 P) (done)
+    - **before the training** 
     - **during the training**
   - revert to an earlier epoch (1 P)
   - freeze parts of the model (1 P)
 - **Training Monitor**
-  - **display accuracy and loss over time for training set**
+  - **display accuracy and loss over time for training set** (done)
   - **indicate point in training where a parameter was changed**
   - display accuracy and loss over time for test set (0.5 P)
   - display layer-specific information (e.g., gradients) (1 - 2 P)

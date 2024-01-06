@@ -140,10 +140,9 @@ def resume_training():
     return jsonify({"success": True})
 
 # @app.route("/loss_plot", methods=["GET"])
+# loss_plot is for the display at endpoint /loss_plot while loss_plot_2 is for the display at index.html
 def loss_plot():
     global epoch_losses, loss, epoch, data_url
-    # while((epoch_losses.get(epoch) is None) & (epoch != -1)):
-    #     epoch_losses[epoch] = loss  
     fig = Figure()
     ax = fig.subplots()  # Create a new figure with a single subplot
     y = list(epoch_losses.values())
@@ -208,7 +207,7 @@ def update_learningRate():
 # @app.route("/update_numEpochs", methods=["POST"])
 def update_numEpochs():
     global n_epochs
-    epochs = int(request.form["n_epochs"])
+    n_epochs = int(request.form["n_epochs"])
     return jsonify({"n_epochs": n_epochs})
 
 #adjust batch_size

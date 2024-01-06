@@ -182,7 +182,7 @@ slider_ep.addEventListener("input", function() {
         headers: {
             "Content-Type": "application/x-www-form-urlencoded"
         },
-        body: "epochs=" + slider_ep.value
+        body: "n_epochs=" + slider_ep.value
     });
 });
 
