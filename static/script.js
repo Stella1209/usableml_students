@@ -68,7 +68,7 @@ function updateEpoch() {
     fetch("/get_epoch")
         .then(response => response.json())
         .then(data => {
-            epochElement.textContent = data.epoch;
+            epochElement.textContent = data.epoch +1;
         });
 }
 
