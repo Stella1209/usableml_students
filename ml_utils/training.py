@@ -11,7 +11,7 @@ from torch.optim import Optimizer, SGD
 
 from data import get_data_loaders
 from evaluate import accuracy
-from model import ConvolutionalNeuralNetwork
+from model import Adjustable_model
 
 
 def train_step(model: Module, optimizer: Optimizer, data: Tensor,
@@ -88,7 +88,7 @@ def main(seed):
     print("init...")
     manual_seed(seed)
     np.random.seed(seed)
-    model = ConvolutionalNeuralNetwork()
+    model = Adjustable_model()
     opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
     print("train...")
     training(

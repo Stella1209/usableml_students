@@ -13,7 +13,7 @@ from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
 
-from ml_utils.model import ConvolutionalNeuralNetwork
+from ml_utils.model import Adjustable_model
 from ml_utils.training import training, load_checkpoint
 
 
@@ -40,6 +40,13 @@ q_stop_signal = queue.Queue()
 q_epoch = queue.Queue()
 q_loss_img = queue.Queue()
 
+# For now two convolutional layers (The interface will have to be adjusted to be able to set the parameters): 
+conv_layer1 = {'size' : 16, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2}
+conv_layer2 = {'size' : 32, 'kernel_size' : 4, 'stride' : 2, 'padding' : 0}
+conv_layers =  [conv_layer1, conv_layer2]
+# One hidden layer with 32 cells:
+lin1 = 32
+lin_layers = [lin1] #, lin2] # Linear layers only have layer size as a parameter
 
 
 
@@ -77,7 +84,7 @@ def start_training():
     manual_seed(seed)
     np.random.seed(seed)
     # initialize training
-    model = ConvolutionalNeuralNetwork()
+    model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
     opt = SGD(model.parameters(), lr=lr, momentum=0.5)
     print(seed)
     print(lr)
@@ -105,11 +112,11 @@ def stop_training():
 
 @app.route("/resume_training", methods=["POST"])
 def resume_training():
-    global stop_signal
+    global stop_signal, lr
     path = "stop.pt"
     stop_signal = False  # Set the stop signal to False
-    model = ConvolutionalNeuralNetwork()
-    opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
+    model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
+    opt = SGD(model.parameters(), lr=lr, momentum=0.5)
     # checkpoint = torch.load(PATH)
     checkpoint = load_checkpoint(model, path)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -233,6 +240,7 @@ def get_dict():
 def get_loss_image():
     global loss_img_url
     return jsonify({"loss_img_url": loss_img_url})
+
 if __name__ == "__main__":
     host = "127.0.0.1"
     port = 5001
