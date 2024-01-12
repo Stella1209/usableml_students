@@ -13,7 +13,7 @@ from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
 
-from ml_utils.model import ConvolutionalNeuralNetwork
+from ml_utils.model import Adjustable_model
 from ml_utils.training import training, load_checkpoint
 
 import math
@@ -53,6 +53,16 @@ losses = []
 epochs = []
 
 
+# Default: For now two convolutional layers (The interface will have to be adjusted to be able to set the parameters): 
+conv_layer1 = {'size' : 32, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2}
+conv_layer2 = {'size' : 32, 'kernel_size' : 4, 'stride' : 2, 'padding' : 0}
+#in_convolutional_layers = 2
+conv_layers_proto =  [conv_layer1, conv_layer2, {'size' : 32}, {'size' : 32}, {'size' : 32}]
+
+# Default: One hidden layer with 32 cells:
+#lin1 = 32
+#lin_layers = [32, 32, 32, 32, 32, 32] #, lin2] # Linear layers only have layer size as a parameter
+
 
 
 def listener():
@@ -82,15 +92,19 @@ def index():
                            loss=loss, loss_plot = loss_img_url, lr=lr, n_epochs=n_epochs, batch_size=batch_size)
 
 # @app.route("/start_training", methods=["POST"])
-def start_training(seed, learning_rate, batch_size, n_epochs):
+def start_training(seed, learning_rate, batch_size, n_epochs, lin_layer_num, conv_layer_num):
     print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
     global q_acc, q_loss, stop_signal, epoch, epoch_losses, loss
+    
+    lin_layers = [32 for i in range(lin_layer_num)]
+    conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
+    
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
     # initialize training
-    model = ConvolutionalNeuralNetwork()
+    model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
     opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     #print(seed)
     #print(learning_rate)
@@ -119,8 +133,11 @@ def stop_training():
     return #jsonify({"success": True})
 
 # @app.route("/resume_training", methods=["POST"])
-def resume_training(seed, learning_rate, batch_size, n_epochs):
+def resume_training(seed, learning_rate, batch_size, n_epochs, lin_layer_num, conv_layer_num):
     global stop_signal
+    
+    lin_layers = [32 for i in range(lin_layer_num)]
+    conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
 
     manual_seed(seed)
     np.random.seed(seed)
@@ -129,7 +146,7 @@ def resume_training(seed, learning_rate, batch_size, n_epochs):
     if q_stop_signal is not None:
         q_stop_signal.put(False)
     stop_signal = False  # Set the stop signal to False
-    model = ConvolutionalNeuralNetwork()
+    model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
     opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     # checkpoint = torch.load(PATH)
     checkpoint = load_checkpoint(model, path)
@@ -323,9 +340,9 @@ with gr.Blocks() as demo:
                 gr.FileExplorer("**/*.ckpt")
                 gr.Markdown("Create Model")
                 gr.Dropdown(label="Model Type")
-                gr.Slider(label="Number of Layers")
-                gr.Slider(label="Kernel Size")
-                gr.Button(value="Create Model")
+                in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1)                
+                in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1)
+                gr.Button(value="Display Model")
             with gr.Column():
                 gr.Markdown("Adjustable Parameters")
                 in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
@@ -336,13 +353,13 @@ with gr.Blocks() as demo:
                 with gr.Row():
                     with gr.Column(min_width=100):
                         button_start = gr.Button(value="Start")
-                        button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                        button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_linear_layers, in_convolutional_layers], outputs=None)
                     with gr.Column(min_width=100):
                         button_stop = gr.Button(value="Stop")
                         button_stop.click(stop_training, inputs=None, outputs=None)
                     with gr.Column(min_width=100):
                         button_continue = gr.Button(value="Continue")
-                        button_continue.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                        button_continue.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_linear_layers, in_convolutional_layers], outputs=None)
             with gr.Column():
                 with gr.Tab("Training"):
                     gr.Markdown("Training")
