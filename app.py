@@ -24,6 +24,8 @@ import plotly.express as px
 import numpy as np
 import pandas as pd
 
+#import cv2
+
 
 # app = Flask(__name__)
 # socketio = SocketIO(app)
@@ -312,52 +314,60 @@ def make_plot():
     return plot
 
 
+#def make_example_graphs():
+#    file = cv2.FileStorage("test.yml", cv2.FILE_STORAGE_WRITE)
+#    file.write("graph", )
+#    file.release()
+
 
 with gr.Blocks() as demo:
     with gr.Tab("Train/Test"):
         with gr.Row():
             with gr.Column():
-                gr.Markdown("Select Model & Dataset")
-                gr.Dropdown(label="Select Model")
-                gr.Dropdown(label="Dataset")
-                gr.FileExplorer("**/*.ckpt")
-                gr.Markdown("Create Model")
-                gr.Dropdown(label="Model Type")
-                gr.Slider(label="Number of Layers")
-                gr.Slider(label="Kernel Size")
-                gr.Button(value="Create Model")
+                with gr.Tab("Select Model"):
+                    gr.Markdown("Select Model & Dataset")
+                    gr.Dropdown(label="Select Model")
+                    gr.Dropdown(label="Dataset")
+                    gr.FileExplorer("**/*.pt")
+                with gr.Tab("Create Model"):
+                    gr.Markdown("Create Model")
+                    gr.Textbox(label="Model Name")
+                    gr.Dropdown(label="Model Type")
+                    gr.Slider(label="Number of Layers")
+                    gr.Slider(label="Kernel Size")
+                    gr.Button(value="Create Model")
             with gr.Column():
-                gr.Markdown("Adjustable Parameters")
-                in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
-                in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
-                in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
-                in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=100, step=1)
-                gr.Dropdown(label="Loss Function")
-                with gr.Row():
-                    with gr.Column(min_width=100):
-                        button_start = gr.Button(value="Start")
-                        button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
-                    with gr.Column(min_width=100):
-                        button_stop = gr.Button(value="Stop")
-                        button_stop.click(stop_training, inputs=None, outputs=None)
-                    with gr.Column(min_width=100):
-                        button_continue = gr.Button(value="Continue")
-                        button_continue.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                 with gr.Tab("Adjustable Parameters"):
+                    gr.Markdown("Adjustable Parameters")
+                    in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
+                    in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
+                    in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
+                    in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=100, step=1)
+                    gr.Dropdown(label="Loss Function")
+                    with gr.Row():
+                        with gr.Column(min_width=100):
+                            button_start = gr.Button(value="Start/Continue")
+                            button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                        with gr.Column(min_width=100):
+                            button_stop = gr.Button(value="Stop")
+                            button_stop.click(stop_training, inputs=None, outputs=None)
+                        #with gr.Column(min_width=100):
+                        #    button_continue = gr.Button(value="Continue")
+                        #    button_continue.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
             with gr.Column():
                 with gr.Tab("Training"):
                     gr.Markdown("Training")
                     training_plot = gr.LinePlot()
                     #out_accuracy = gr.Textbox(label="Accuracy")
                     #out_loss = gr.Textbox(label="Loss")
+                    select_plot = gr.FileExplorer("**/*.pt", file_count="multiple")
+                    #select_plot = gr.Dropdown([], value=[], multiselect=True, label="Models to plot", info="Select model training graphs to display in the plot")
                     training_info = gr.Markdown()
-                    gr.Markdown("Analysis")
-                    gr.Markdown("...")
                 with gr.Tab("Testing"):
-                    gr.Markdown("Test Result")
-                    gr.Image(label="Input")
-                    gr.Button(value="Select random Image")
-                    gr.Image(label="Output")
-                    gr.Markdown("Label: ...")
+                    gr.Markdown("Testing")
+                    gr.Paint()
+                    gr.Button(value="Test")
+                    gr.Text(label="Result")
 
     
     with gr.Tab("Info"):

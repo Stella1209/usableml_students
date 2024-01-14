@@ -43,21 +43,25 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
     if cuda:
         model.cuda()
     stop_signal = False
+    counter = 20
     for epoch in range(start_epoch, n_epochs):
         q_epoch.put(epoch)
         for batch in train_loader:
             data, target = batch
             train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
                        target=target)
-            test_loss, test_acc = accuracy(model, test_loader, cuda)
-            if q_acc is not None:
-                q_acc.put(test_acc)
-            if q_loss is not None:
-                q_loss.put(test_loss)
-            if q_stop_signal is not None and q_stop_signal.qsize() > 0:
-                print("queue checked")
-                stop_signal = q_stop_signal.get()
-                q_stop_signal.task_done()
+            counter += 1
+            if (counter >= 20):
+                counter = 0
+                test_loss, test_acc = accuracy(model, test_loader, cuda)
+                if q_acc is not None:
+                    q_acc.put(test_acc)
+                if q_loss is not None:
+                    q_loss.put(test_loss)
+                if q_stop_signal is not None and q_stop_signal.qsize() > 0:
+                    print("queue checked")
+                    stop_signal = q_stop_signal.get()
+                    q_stop_signal.task_done()
         print(f"epoch{epoch} is done!")
         # print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
         if stop_signal:
@@ -65,6 +69,8 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
             #print(f"The checkpoint for epoch: {epoch} is saved!")
             print("successfully stopped")
             break
+    if not stop_signal:
+        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
     if cuda:
         empty_cache()
 
