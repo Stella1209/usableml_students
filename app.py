@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import numpy as np
+import torch.nn as nn
 from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
@@ -25,11 +26,13 @@ socketio = SocketIO(app)
 seed = 42
 acc = -1
 loss = 0.1
+loss_fn=None#nn.CrossEntropyLoss()
 n_epochs = 10
 epoch = -1
 epoch_losses = dict.fromkeys(range(n_epochs))
 stop_signal = False
 data_image = base64.b64encode(b"").decode("ascii")
+loss_img_url = f"data:image/png;base64,{data_image}"
 loss_img_url = f"data:image/png;base64,{data_image}"
 lr = 0.3
 batch_size = 256
@@ -64,15 +67,15 @@ def listener():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    global seed, acc, loss, epoch_losses, loss_img_url, lr, n_epochs, batch_size
+    global seed, acc, loss, epoch_losses, loss_img_url, lr, n_epochs, batch_size,loss_fn
     # render "index.html" as long as user is at "/"
     return render_template("index.html", seed=seed, acc=acc, \
-                           loss=loss, loss_plot = loss_img_url, lr=lr, n_epochs=n_epochs, batch_size=batch_size)
+                           loss=loss, loss_plot = loss_img_url, lr=lr, n_epochs=n_epochs, batch_size=batch_size) #, loss_fn=loss_fn
 
 @app.route("/start_training", methods=["POST"])
 def start_training():
     # ensure that these variables are the same as those outside this method
-    global q_acc, q_loss, seed, stop_signal, epoch, epoch_losses, loss, lr, n_epochs, batch_size
+    global q_acc, q_loss, seed, stop_signal, epoch, epoch_losses, loss, lr, n_epochs, batch_size, loss_fn
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
@@ -83,9 +86,11 @@ def start_training():
     print(lr)
     print(n_epochs)
     print(batch_size)
+    print(loss_fn)
     # execute training
     training(model=model,
              optimizer=opt,
+             loss_fn=loss_fn,
              cuda=False,
              n_epochs=n_epochs,
              start_epoch=0,
@@ -116,6 +121,7 @@ def resume_training():
     opt.load_state_dict(checkpoint['optimizer_state_dict'])
     training(model=model,
              optimizer=opt,
+             loss_fn=loss_fn,
              cuda=False,
              n_epochs=n_epochs,
              start_epoch=checkpoint['epoch']+1,
@@ -204,6 +210,15 @@ def update_batch_size():
     global batch_size
     batch_size = int(request.form["batch_size"])
     return jsonify({"batch_size": batch_size})
+
+#adjust loss_fn
+@app.route("/update_loss_fn", methods=["POST"])
+def update_loss_fn():
+    global loss_fn
+    loss_dict = {"CrossEntropy":nn.CrossEntropyLoss(),
+                 "HingeEmbedding":nn.HingeEmbeddingLoss()}
+    loss_fn = loss_dict[str(request.form["loss_fn"])]
+    return jsonify({"success": True})
 
 @app.route("/get_accuracy")
 def get_accuracy():

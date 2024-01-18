@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from torch import manual_seed, Tensor
 from torch.cuda import empty_cache
+import torch.nn as nn
 from torch.nn import Module, functional as F
 from torch.optim import Optimizer, SGD
 
@@ -14,19 +15,19 @@ from evaluate import accuracy
 from model import ConvolutionalNeuralNetwork
 
 
-def train_step(model: Module, optimizer: Optimizer, data: Tensor,
+def train_step(model: Module, optimizer: Optimizer, loss_fn: nn, data: Tensor,
                target: Tensor, cuda: bool):
     model.train()
     if cuda:
         data, target = data.cuda(), target.cuda()
     prediction = model(data)
-    loss = F.cross_entropy(prediction, target)
+    loss = loss_fn(prediction, target) 
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
 
 
-def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int, 
+def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epochs: int, 
              start_epoch: int, batch_size: int, q_acc: Queue = None, q_loss: Queue = None, 
              q_epoch: Queue = None, q_stop_signal: Queue = None):
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
@@ -38,9 +39,9 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
         q_epoch.put(epoch)
         for batch in train_loader:
             data, target = batch
-            train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
+            train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
-        test_loss, test_acc = accuracy(model, test_loader, cuda)
+        test_loss, test_acc = accuracy(model, test_loader, loss_fn, cuda)
         if q_acc is not None:
             q_acc.put(test_acc)
         if q_loss is not None:
@@ -94,6 +95,7 @@ def main(seed):
     training(
         model=model,
         optimizer=opt,
+        loss_fn=nn.CrossEntropyLoss(),
         cuda=False,     # change to True to run on nvidia gpu
         n_epochs=10,
         batch_size=256,

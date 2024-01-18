@@ -2,6 +2,7 @@ var slider_seed = document.getElementById("slider_seed"); //seed slider
 var slider_lr = document.getElementById("slider_lr"); //learing rate slider
 var slider_ep = document.getElementById("slider_ep"); //num epochs slider
 var slider_batches = document.getElementById("slider_batches"); //num epochs slider
+var select_loss_fn = document.getElementById("select_loss_fn"); //loss function select
 var sliderValueElement_seed = document.getElementById("sliderValue_seed");
 var sliderValueElement_lr = document.getElementById("sliderValue_lr");
 var sliderValueElement_ep = document.getElementById("sliderValue_ep");
@@ -196,4 +197,15 @@ slider_batches.addEventListener("input", function() {
         },
         body: "batch_size=" + slider_batches.value
     });
-});batch_size
+});//batch_size
+
+// Function to change loss function when loss function is chosen
+select_loss_fn.addEventListener("input", function() {
+    fetch("/update_loss_fn", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: "loss_fn=" + select_loss_fn.value
+    });
+});//batch_size
