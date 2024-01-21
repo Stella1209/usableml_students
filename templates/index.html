@@ -22,12 +22,14 @@
     <input type="range" id="slider_batches" min="0" max="1000" step="1.0" value="{{ batch_size }}">
     <span id="sliderValue_batches">{{ batch_size }}</span>
     </p>
-    <p>Current Epoch: <span id="epoch">{{ epoch }}</span></p>
+    <p>Last Finished Epoch: <span id="epoch">{{ epoch }}</span></p>
+    <!-- <p>Current running Epoch: <span>{{ current_epoch }}</span></p> -->
     <p>Current Accuracy: <span id="accuracy">{{ acc }}</span></p>
     <p>Current Loss: <span id="loss">{{ loss }}</span></p>
     <button id="playButton">Play</button>
     <button id="stopButton">Stop</button>
     <button id="resumeButton">Resume</button>
+    <button id="revertButton">Revert to Last Epoch</button>
     <p> <image id="loss_plot" src="{{ loss_plot }}"></image> </p>
     <p> <image id="acc_plot" src="{{ acc_plot }}"></image> </p>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

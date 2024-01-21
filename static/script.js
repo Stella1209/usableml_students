@@ -9,6 +9,7 @@ var sliderValueElement_batches = document.getElementById("sliderValue_batches");
 var playButton = document.getElementById("playButton");
 var stopButton = document.getElementById("stopButton");
 var resumeButton = document.getElementById("resumeButton");
+var revertButton = document.getElementById("revertButton");
 var accuracyElement = document.getElementById("accuracy");
 var lossElement = document.getElementById("loss");
 var epochElement = document.getElementById("epoch");
@@ -28,6 +29,7 @@ playButton.addEventListener('click', function () {
 
 stopButton.addEventListener('click', function(){
     stopTraining();
+    alert("The training might stop only after finishing the current epoch.")
     stopButton.disabled = true;
     playButton.disabled = false;
     slider_seed.disabled = true;
@@ -38,6 +40,7 @@ stopButton.addEventListener('click', function(){
 
 resumeButton.addEventListener('click', function(){
     resumeTraining();
+    updateImage();
     stopButton.disabled = false;
     resumeButton.disabled = true;
     playButton.disabled = false;
@@ -45,6 +48,19 @@ resumeButton.addEventListener('click', function(){
     slider_lr.disabled = true;
     slider_ep.disabled = true;
     slider_batches.disabled = true;
+});
+
+revertButton.addEventListener('click', function(){
+    alert("If training hasn't been stopped, it stops after finishing the current epoch. It can take some time. You can revert further after changes stop, fresh up the page and click again.")
+    revertToLastEpoch();
+    updateImage();
+    revertButton.disabled = true;
+    stopButton.disabled = true;
+    playButton.disabled = false;
+    slider_seed.disabled = true;
+    slider_lr.disabled = false;
+    slider_ep.disabled = false;
+    slider_batches.disabled = false;
 });
 
 // Function to update accuracy value on the page
@@ -141,6 +157,15 @@ function resumeTraining(){
     .then(response => response.json())
 }
 
+function revertToLastEpoch(){
+    fetch("/revert_to_last_epoch", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+    })
+    .then(response => response.json())
+}
 // Update every second
 setInterval(function() {
     updateAccuracy();
@@ -148,7 +173,7 @@ setInterval(function() {
     updateEpoch();
     updateEpochLosses();
     updateImage();
-}, 1000);
+}, 5000);
 
 // Function to change seed value when slider is changed
 slider_seed.addEventListener("input", function() {

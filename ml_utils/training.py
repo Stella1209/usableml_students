@@ -1,5 +1,6 @@
 from queue import Queue
 import sys
+import time
 sys.path.append("ml_utils")
 
 import numpy as np
@@ -37,15 +38,17 @@ def train_step(model: Module, optimizer: Optimizer, data: Tensor,
 
 def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int, 
              start_epoch: int, batch_size: int, q_acc: Queue = None, q_loss: Queue = None, 
-             q_epoch: Queue = None, q_stop_signal: Queue = None):
+             q_epoch: Queue = None, 
+             q_break_signal:Queue = None,
+             stop_signal: bool = False, 
+             q_stop_signal: Queue = None):
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
-    path = "stop.pt"
     if cuda:
         model.cuda()
-    stop_signal = False
     counter = 20
     for epoch in range(start_epoch, n_epochs):
-        q_epoch.put(epoch)
+        print(f"Epoch {epoch} starts...")
+        path=f"stop{epoch}.pt"
         for batch in train_loader:
             data, target = batch
             train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
@@ -58,19 +61,14 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
                     q_acc.put(test_acc)
                 if q_loss is not None:
                     q_loss.put(test_loss)
-                if q_stop_signal is not None and q_stop_signal.qsize() > 0:
-                    print("queue checked")
-                    stop_signal = q_stop_signal.get()
-                    q_stop_signal.task_done()
+                if q_stop_signal.empty():
+                    continue
+                if q_stop_signal.get():
+                    q_break_signal.put(True)
+                    print("successfully stopped")
+                    break
         print(f"epoch{epoch} is done!")
-        # print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
-        if stop_signal:
-            save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
-            #print(f"The checkpoint for epoch: {epoch} is saved!")
-            print("successfully stopped")
-            break
-    if not stop_signal:
-        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
+        
     if cuda:
         empty_cache()
 
