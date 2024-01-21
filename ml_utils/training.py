@@ -10,10 +10,19 @@ from torch.cuda import empty_cache
 from torch.nn import Module, functional as F
 from torch.optim import Optimizer, SGD
 
-from data import get_data_loaders
-from evaluate import accuracy
-from model import ConvolutionalNeuralNetwork
+try:
+    from ml_utils.data import get_data_loaders
+    from ml_utils.evaluate import accuracy
+    from ml_utils.model import ConvolutionalNeuralNetwork
+except:
+    from data import get_data_loaders
+    from evaluate import accuracy
+    from model import ConvolutionalNeuralNetwork
 
+from torchvision import models
+from torchsummary import summary
+import warnings
+warnings.filterwarnings('ignore')
 
 def train_step(model: Module, optimizer: Optimizer, data: Tensor,
                target: Tensor, cuda: bool):
@@ -36,6 +45,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
     if cuda:
         model.cuda()
+    counter = 20
     for epoch in range(start_epoch, n_epochs):
         print(f"Epoch {epoch} starts...")
         path=f"stop{epoch}.pt"
@@ -43,36 +53,22 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
             data, target = batch
             train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
                        target=target)
-        test_loss, test_acc = accuracy(model, test_loader, cuda)
-        # if (q_stop_signal.empty() | (not (q_stop_signal.get()))):
-        #     if q_acc is not None:
-        #         q_acc.put(test_acc)
-        #     if q_loss is not None:
-        #         q_loss.put(test_loss)
-        #     q_epoch.put(epoch) # put to listener
-        #     print(f"epoch{epoch} is done!")
-        #     print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
-        #     save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
-        #     print(f"The checkpoint for epoch: {epoch} is saved!")
-        # else:
-        #     q_break_signal.put(True)
-        #     print(f"Epoch {epoch} is aborted!")
-        #     break
-        # if q_stop_signal.get():
-        if q_acc is not None:
-            q_acc.put(test_acc)
-        if q_loss is not None:
-            q_loss.put(test_loss)
-        q_epoch.put(epoch) # put to listener
+            counter += 1
+            if (counter >= 20):
+                counter = 0
+                test_loss, test_acc = accuracy(model, test_loader, cuda)
+                if q_acc is not None:
+                    q_acc.put(test_acc)
+                if q_loss is not None:
+                    q_loss.put(test_loss)
+                if q_stop_signal.empty():
+                    continue
+                if q_stop_signal.get():
+                    q_break_signal.put(True)
+                    print("successfully stopped")
+                    break
         print(f"epoch{epoch} is done!")
-        print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
-        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
-        print(f"The checkpoint for epoch: {epoch} is saved!")
-        if q_stop_signal.empty():
-            continue
-        if q_stop_signal.get():
-            q_break_signal.put(True)
-            break
+        
     if cuda:
         empty_cache()
 
