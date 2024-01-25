@@ -25,7 +25,7 @@ import plotly.express as px
 import numpy as np
 import pandas as pd
 
-#import cv2
+import cv2
 
 
 # app = Flask(__name__)
@@ -89,7 +89,7 @@ def index():
 def start_training(seed, lr, batch_size, n_epochs):
     print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, lr, n_epochs, batch_size
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
@@ -136,8 +136,8 @@ def stop_training():
     #return jsonify({"success": True})
 
 #@app.route("/resume_training", methods=["POST"])
-def resume_training(seed, learning_rate, batch_size, n_epochs):
-    global break_signal, epoch, lr, q_acc, q_loss, q_epoch, q_stop_signal, n_epochs, batch_size, stop_signal
+def resume_training(seed, lr, batch_size, n_epochs):
+    global break_signal, epoch, q_acc, q_loss, q_epoch, q_stop_signal, stop_signal
     manual_seed(seed)
     np.random.seed(seed)
 
@@ -214,7 +214,7 @@ def revert_to_last_epoch():
 #     return jsonify({"success": True})
     
 
-@app.route("/loss_plot", methods=["GET"])
+#@app.route("/loss_plot", methods=["GET"])
 # loss_plot is for the display at endpoint /loss_plot while loss_plot_2 is for the display at index.html
 def loss_plot():
     global data_url
@@ -364,7 +364,22 @@ def make_plot():
         for i in range(max_len):
             training_steps.append(i + 1)
     #plot = gr.LinePlot(value=pd.DataFrame({"Epoch": training_steps, "Accuracy": accs, "Loss": losses}), x="Epoch", y="Accuracy")
-    plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Training Steps": training_steps}), x="Training Steps", y="Values", color="Labels")
+    plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Epochs": training_steps}), x="Epochs", y="Values", color="Labels")
+    return plot
+
+def load_graph(files: [str]):
+    file = cv2.FileStorage(files[0], cv2.FILE_STORAGE_READ)
+    plots = file.getNode("Plot").mat()
+    print(plots)
+    print(plots[-1])
+    print(plots[-1][0])
+    print(plots[-1][1])
+    print(plots[-1][2])
+    max_len = min([len(plots[-1][0]), len(plots[-1][1])])
+    print(["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)])
+    print(plots[-1][2] + plots[-1][1])
+    print(plots[-1][0] + plots[-1][0])
+    plot = gr.LinePlot(value=pd.DataFrame({"Labels": np.concatenate([["Accuracy" for _ in range(max_len)], ["Loss" for _ in range(max_len)]]), "Values": np.concatenate([plots[-1][2], plots[-1][1]]), "Epochs": np.concatenate([plots[-1][0], plots[-1][0]])}), x="Epochs", y="Values", color="Labels")
     return plot
 
 
@@ -414,7 +429,8 @@ with gr.Blocks() as demo:
                     training_plot = gr.LinePlot()
                     #out_accuracy = gr.Textbox(label="Accuracy")
                     #out_loss = gr.Textbox(label="Loss")
-                    select_plot = gr.FileExplorer("**/*.pt", file_count="multiple")
+                    select_plot = gr.FileExplorer("**/*.yml", file_count="multiple")
+                    select_plot.change(load_graph, inputs=[select_plot], outputs=[training_plot])
                     #select_plot = gr.Dropdown([], value=[], multiselect=True, label="Models to plot", info="Select model training graphs to display in the plot")
                     training_info = gr.Markdown()
                 with gr.Tab("Testing"):
