@@ -13,11 +13,11 @@ from torch.optim import Optimizer, SGD
 try:
     from ml_utils.data import get_data_loaders
     from ml_utils.evaluate import accuracy
-    from ml_utils.model import ConvolutionalNeuralNetwork
+    from ml_utils.model import Adjustable_model
 except:
     from data import get_data_loaders
     from evaluate import accuracy
-    from model import ConvolutionalNeuralNetwork
+    from model import Adjustable_model
 
 from torchvision import models
 from torchsummary import summary
@@ -171,7 +171,7 @@ def main(seed):
     print("init...")
     manual_seed(seed)
     np.random.seed(seed)
-    model = ConvolutionalNeuralNetwork()
+    model = Adjustable_model()
     opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
     print("train...")
     training(
