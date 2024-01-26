@@ -21,7 +21,7 @@ def train_step(model: Module, optimizer: Optimizer, loss_fn: nn, data: Tensor,
     if cuda:
         data, target = data.cuda(), target.cuda()
     prediction = model(data)
-    loss = loss_fn(prediction, target) 
+    loss = loss_fn(prediction, target)
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
@@ -39,6 +39,10 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         q_epoch.put(epoch)
         for batch in train_loader:
             data, target = batch
+
+            if(str(loss_fn) == "HingeEmbeddingLoss()"):
+                target = target.unsqueeze(-1)
+        
             train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
         test_loss, test_acc = accuracy(model, test_loader, loss_fn, cuda)
@@ -51,19 +55,20 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         print(f"epoch{epoch} is done!")
         # print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
         if stop_signal:
-            save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
+            save_checkpoint(model, optimizer, epoch, test_loss, loss_fn, test_acc, path, False)
             print(f"The checkpoint for epoch: {epoch} is saved!")
             break
     if cuda:
         empty_cache()
 
-def save_checkpoint(model, optimizer, epoch, loss, acc, path, print_info):
+def save_checkpoint(model, optimizer, epoch, loss, acc, loss_fn, path, print_info):
     checkpoint = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
         'acc': acc,
+        'loss_fn': loss_fn,
         # Add any other information you want to save
     }
     torch.save(checkpoint, path)

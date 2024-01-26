@@ -14,6 +14,10 @@ def accuracy(model: Module, loader: DataLoader, loss_fn: nn, cuda: bool) -> (flo
     correct = 0
     with torch.no_grad():
         for data, target in loader:
+
+            if(str(loss_fn) == "HingeEmbeddingLoss()"):
+                target = target.unsqueeze(-1)
+
             if cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)

@@ -26,7 +26,7 @@ socketio = SocketIO(app)
 seed = 42
 acc = -1
 loss = 0.1
-loss_fn=None#nn.CrossEntropyLoss()
+loss_fn=nn.CrossEntropyLoss()
 n_epochs = 10
 epoch = -1
 epoch_losses = dict.fromkeys(range(n_epochs))
@@ -70,7 +70,7 @@ def index():
     global seed, acc, loss, epoch_losses, loss_img_url, lr, n_epochs, batch_size,loss_fn
     # render "index.html" as long as user is at "/"
     return render_template("index.html", seed=seed, acc=acc, \
-                           loss=loss, loss_plot = loss_img_url, lr=lr, n_epochs=n_epochs, batch_size=batch_size) #, loss_fn=loss_fn
+                           loss=loss, loss_plot = loss_img_url, lr=lr, n_epochs=n_epochs, batch_size=batch_size, loss_fn=loss_fn) 
 
 @app.route("/start_training", methods=["POST"])
 def start_training():
@@ -82,11 +82,11 @@ def start_training():
     # initialize training
     model = ConvolutionalNeuralNetwork()
     opt = SGD(model.parameters(), lr=lr, momentum=0.5)
-    print(seed)
-    print(lr)
-    print(n_epochs)
-    print(batch_size)
-    print(loss_fn)
+    print("seed:", seed)
+    print("learning rate:", lr)
+    print("number of epochs:", n_epochs)
+    print("batch size:", batch_size)
+    print("loss function:", loss_fn)
     # execute training
     training(model=model,
              optimizer=opt,
@@ -216,7 +216,8 @@ def update_batch_size():
 def update_loss_fn():
     global loss_fn
     loss_dict = {"CrossEntropy":nn.CrossEntropyLoss(),
-                 "HingeEmbedding":nn.HingeEmbeddingLoss()}
+                 "NegativeLog":nn.NLLLoss(),
+                 "Hinge":nn.HingeEmbeddingLoss()}
     loss_fn = loss_dict[str(request.form["loss_fn"])]
     return jsonify({"success": True})
 
