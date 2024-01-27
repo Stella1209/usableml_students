@@ -2,6 +2,9 @@ import threading
 import queue
 import webbrowser
 import base64
+from PIL import Image 
+import io
+import os
 
 from io import BytesIO
 from matplotlib.figure import Figure
@@ -11,9 +14,11 @@ from flask_socketio import SocketIO, emit
 import numpy as np
 from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
+import torch
 import matplotlib.pyplot as plt
 
 from ml_utils.model import Adjustable_model
+from ml_utils.network_drawer import Neuron, Layer, NeuralNetwork, DrawNN
 from ml_utils.training import training, load_checkpoint
 
 import math
@@ -91,8 +96,12 @@ def index():
     return render_template("index.html", seed=seed, acc=acc, \
                            loss=loss, loss_plot = loss_img_url, lr=lr, n_epochs=n_epochs, batch_size=batch_size)
     
-def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
+def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
     global current_model
+    if model_name == "":
+        print("model needs a name")
+        model_name = "unnamed"
+    path = f"{model_name}.pt"
     conv_layers_proto =  [{'size' : conv_layer_size, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2}, 
                           {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 2, 'padding' : 0}]
     if conv_layer_num > len(conv_layers_proto):
@@ -101,14 +110,48 @@ def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size 
     conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
     
     current_model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
+    print(f"created model called {model_name}")
+    print(current_model)
+    checkpoint = {
+            'model_name': model_name,
+            'model_state_dict': current_model.state_dict()
+    }
+    torch.save(checkpoint, path)
     return
+
+def simple_model_drawer(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
+    inp = [1]
+    for i in range(conv_layer_num):
+        inp.append(conv_layer_size)
+    for i in range(lin_layer_num):
+        inp.append(lin_layer_size)
+    inp.append(10)
+    print(inp)
+    network = DrawNN( inp, conv_layer_num )
+    return network.draw()
+
+def fig2img(fig): 
+    buf = io.BytesIO() 
+    fig.savefig(buf, bbox_inches='tight')
+    buf.seek(0) 
+    img = Image.open(buf) 
+    return img 
+
+def make_img(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
+    fig = simple_model_drawer(conv_layer_num = conv_layer_num, lin_layer_num = lin_layer_num, conv_layer_size = conv_layer_size, lin_layer_size = lin_layer_size)
+    img = fig2img(fig) 
+    # Save image with the help of save() Function. 
+    img.save('network.png') 
+    #return os.path.join(os.path.dirname(__file__), "network.png")
+    return img
+    
 
 # @app.route("/start_training", methods=["POST"])
 def start_training(seed, learning_rate, batch_size, n_epochs): #, lin_layer_num, conv_layer_num):
     print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
     global q_acc, q_loss, stop_signal, epoch, epoch_losses, loss, current_model
-    
+        
     #lin_layers = [32 for i in range(lin_layer_num)]
     #conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
     
@@ -117,6 +160,7 @@ def start_training(seed, learning_rate, batch_size, n_epochs): #, lin_layer_num,
     np.random.seed(seed)
     # initialize training
     model = current_model
+    #print(model)
     opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     #print(seed)
     #print(learning_rate)
@@ -346,19 +390,40 @@ with gr.Blocks() as demo:
     with gr.Tab("Train/Test"):
         with gr.Row():
             with gr.Column():
-                gr.Markdown("Select Model & Dataset")
-                gr.Dropdown(label="Select Model")
-                gr.Dropdown(label="Dataset")
-                gr.FileExplorer("**/*.ckpt")
-                gr.Markdown("Create Model")
-                gr.Dropdown(label="Model Type")
-                in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1) 
-                in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1)               
-                in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1)
-                in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1)
-                button_create_model = gr.Button(value="Create Model")
-                button_create_model.click(simple_model_creator, inputs=[in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
-                gr.Button(value="Display Model")
+                with gr.Tab("Select Model"):
+                    gr.Markdown("Select Model & Dataset")
+                    gr.Dropdown(label="Select Model")
+                    gr.Dropdown(label="Dataset")
+                    gr.FileExplorer("**/*.pt")
+                with gr.Tab("Create Model"):
+                    gr.Markdown("Create Model")
+                    with gr.Tab("Beginner Model Creator"):
+                        in_model_name = gr.Textbox(label="Model Name")
+                        in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1) 
+                        in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1)               
+                        in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1)
+                        in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1)
+                        button_create_model = gr.Button(value="Create Model")
+                        button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
+                        button_display = gr.Button(value="Display Model")
+                        #network_plot = gr.Plot()
+                        
+                        network_img = gr.Image(type='filepath', value='network.png')#type="pil")
+                        button_display.click(make_img, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)          
+                        #gr.Interface(make_img, gr.Image(type="pil", value=None), "image")
+                        
+                    with gr.Tab("Advanced Model Creator"):
+                        in_model_name = gr.Textbox(label="Model Name")
+                        button_create_model = gr.Button(value="Create Model")
+                        #button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
+                        #button_display = gr.Button(value="Display Model")
+                        #output = gr.Plot()
+                        #button_display.click(simple_model_drawer, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=output)          
+                        #network_plot = gr.Plot()
+                        #gr.Interface(
+                        #    fn=simple_model_drawer,
+                        #    inputs= [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin],
+                        #    outputs=gr.Plot())
             with gr.Column():
                 gr.Markdown("Adjustable Parameters")
                 in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
@@ -415,6 +480,7 @@ The deviation between the result and the reference image is mathematically recor
     #demo.load(get_loss, None, out_loss, every=1)
     dep1 = demo.load(get_statistics, None, training_info, every=0.5)
     dep2 = demo.load(make_plot, None, training_plot, every=0.5)
+    #dep3 = demo.load(simple_model_drawer, None, network_plot)
     #demo.load(listener, None, None, every=1)
     #dep1 = demo.load(get_accuracy, None, None, every=0.5)
     #dep2 = demo.load(get_loss, None, None, every=0.5)
