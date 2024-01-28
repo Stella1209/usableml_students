@@ -14,15 +14,20 @@ def accuracy(model: Module, loader: DataLoader, loss_fn: nn, cuda: bool) -> (flo
     correct = 0
     with torch.no_grad():
         for data, target in loader:
-
-            if(str(loss_fn) == "HingeEmbeddingLoss()"):
-                target = target.unsqueeze(-1)
-
             if cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
             output = model(data)
-            losses.append(loss_fn(output, target).item())
+
+            if (str(loss_fn) == "NLLLoss()"):
+                output = F.log_softmax(output, dim=1)
+
+            if(str(loss_fn) == "MSELoss()" or str(loss_fn) == "L1Loss()"):
+                target_one_hot = F.one_hot(target, 10).float()
+                losses.append(loss_fn(output, target_one_hot).item())
+            else:
+                losses.append(loss_fn(output, target).item())
+
             pred = output.data.max(1, keepdim=True)[1]
             correct += pred.eq(target.data.view_as(pred)).cpu().sum().item()
     eval_loss = float(np.mean(losses))

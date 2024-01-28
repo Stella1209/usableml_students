@@ -217,7 +217,8 @@ def update_loss_fn():
     global loss_fn
     loss_dict = {"CrossEntropy":nn.CrossEntropyLoss(),
                  "NegativeLog":nn.NLLLoss(),
-                 "Hinge":nn.HingeEmbeddingLoss()}
+                 "L1":nn.L1Loss(),
+                 "MSE":nn.MSELoss()}
     loss_fn = loss_dict[str(request.form["loss_fn"])]
     return jsonify({"success": True})
 

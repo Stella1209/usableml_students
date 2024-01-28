@@ -21,6 +21,10 @@ def train_step(model: Module, optimizer: Optimizer, loss_fn: nn, data: Tensor,
     if cuda:
         data, target = data.cuda(), target.cuda()
     prediction = model(data)
+
+    if (str(loss_fn) == "NLLLoss()"):
+        prediction = F.log_softmax(prediction, dim=1)
+
     loss = loss_fn(prediction, target)
     loss.backward()
     optimizer.step()
@@ -40,8 +44,8 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         for batch in train_loader:
             data, target = batch
 
-            if(str(loss_fn) == "HingeEmbeddingLoss()"):
-                target = target.unsqueeze(-1)
+            if(str(loss_fn) == "MSELoss()" or str(loss_fn) == "L1Loss()"):
+                target = F.one_hot(target, 10).float()
         
             train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
