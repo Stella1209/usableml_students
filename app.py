@@ -1,10 +1,6 @@
-
-
 import os
-
 os.system("pip uninstall -y gradio")
 os.system("pip install gradio==3.50.2")
-
 import queue
 import webbrowser
 import base64
@@ -332,10 +328,8 @@ def make_plot():
     return plot
 
     
-
 mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
 mnist_testset = datasets.MNIST(root='./data', train=False, download=True, transform=None)
-
 
 x_train=mnist_trainset.data.numpy()
 x_test=mnist_testset.data.numpy()
@@ -345,20 +339,16 @@ y_test=mnist_testset.targets.numpy()
 x_train=x_train.reshape(60000,784)/255.0
 x_test=x_test.reshape(10000,784)/255.0
 
-
 mlp = MLPClassifier(hidden_layer_sizes=(32,32))
 mlp.fit(x_train, y_train)
 
 print("Training Accuracy:", mlp.score(x_train, y_train))
 print("Testing Accuracy:", mlp.score(x_test, y_test))
 
-
 def predictIt(img):
     img = img.reshape(1,784)/255.0
     prediction = mlp.predict(img)[0]
     return int(prediction)
-
-
 
 with gr.Blocks() as demo:
     
@@ -408,14 +398,8 @@ with gr.Blocks() as demo:
                     gr.Markdown("Label: ...")
     
     with gr.Tab("Playground"):
-        #sketchpad = gr.Sketchpad(height=28, width= 28, image_mode="L", crop_size="28:28")
         gr.Interface(fn=predictIt, 
-                     inputs = gr.Sketchpad(shape = (28, 28), image_mode='L', invert_colors=True, source='canvas'),
-                     #inputs = gr.Sketchpad(width=30,
-                     #                       height=30, 
-                     #                      image_mode='L',sources=(), 
-                     #                      brush=gr.Brush(colors=["#000000"], 
-                     #                      color_mode="fixed")),  
+                     inputs = gr.Sketchpad(shape = (28, 28), image_mode='L', invert_colors=True, source='canvas'), 
                      outputs = "label")
 
     
