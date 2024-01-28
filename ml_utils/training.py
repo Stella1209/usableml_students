@@ -41,12 +41,16 @@ def prepare_training(file_name: str, n_epochs: int,
     if q_stop_signal is not None:
         q_stop_signal.put(False)
     print(f"Resume from epoch {n_epochs}")
-    path = f"stop{n_epochs}.pt"
-    model = ConvolutionalNeuralNetwork()
+    #path = f"stop{n_epochs}.pt"
+    model = Adjustable_model()
+    #model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
     opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     checkpoint = load_checkpoint(model, path)
+    model = Adjustable_model(linear_layers = checkpoint['lin_layers'], convolutional_layers = checkpoint['conv_layers'])
+    opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    #model = load_checkpoint(model, path)
     model.load_state_dict(checkpoint['model_state_dict'])
-    opt.load_state_dict(checkpoint['optimizer_state_dict'])
+    #opt.load_state_dict(checkpoint['optimizer_state_dict'])
     print(f"Epoch {n_epochs} loaded, ready to resume training!")
     training(model=model,
              optimizer=opt,
@@ -59,7 +63,7 @@ def prepare_training(file_name: str, n_epochs: int,
              q_epoch=q_epoch,
              q_break_signal = q_break_signal,
              q_stop_signal=q_stop_signal, 
-             file_name=file_name)
+             file_name=file_name, lin_layers = checkpoint['lin_layers'], conv_layers = checkpoint['conv_layers'])
     
 
 
@@ -81,7 +85,8 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
              q_break_signal:Queue = None,
              stop_signal: bool = False, 
              q_stop_signal: Queue = None, 
-             file_name: str = None):
+             file_name: str = None,
+             lin_layers: int = 0, conv_layers: int = 0):
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
     if cuda:
         model.cuda()
@@ -89,9 +94,13 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
     timestr = time.strftime("%Y%m%d-%H%M%S")
 
     file = cv2.FileStorage(f"{file_name}.yml", cv2.FILE_STORAGE_READ)
-    model_name = file.getNode("Name").mat()
-    plots = file.getNode("Plot").mat()
-    plots.append([[],[],[]])
+    model_name = file.getNode("Name").string()
+    plots = np.array(file.getNode("Plot").mat())
+    print(plots.size)
+    if plots.size == 1:
+        plots = np.empty((3, 0), float)
+    #plots.append([[],[],[]])
+    #np.append(plots, [[],[],[]])
 
     #counter = 20
     for epoch in range(start_epoch, n_epochs):
@@ -110,36 +119,52 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
             q_acc.put(test_acc)
         if q_loss is not None:
             q_loss.put(test_loss)
-        plots[-1][0].append((epoch))
-        plots[-1][1].append((test_loss))
-        plots[-1][2].append((test_acc))
+        if q_epoch is not None:
+            q_epoch.put(epoch)
+        print(plots)
+        plots = np.append(plots, np.array([[epoch, test_loss, test_acc]]).transpose(), axis=1)
+        #np.append(plots[0], [epoch])
+        #np.append(plots[1], [test_loss])
+        #np.append(plots[2], [test_acc])
+        #plots[-1][0].append((epoch))
+        #plots[-1][1].append((test_loss))
+        #plots[-1][2].append((test_acc))
                 #if q_stop_signal is not None and q_stop_signal.qsize() > 0:
                 #    print("queue checked")
                 #    stop_signal = q_stop_signal.get()
                 #    q_stop_signal.task_done()
         print(f"epoch{epoch} is done!")
         print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
-        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
+        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, lin_layers, conv_layers, path, False)
         print(f"The checkpoint for epoch: {epoch} is saved!")
         # print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
         #if stop_signal:
         #    save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
         #    print(f"The checkpoint for epoch: {epoch} is saved!")
         #    print("successfully stopped")
+        
+        print(plots)
+        file = cv2.FileStorage(f"{model_name}_{timestr}_{epoch}.yml", cv2.FILE_STORAGE_WRITE)
+        file.write("Plot", np.array(plots))
+        file.write("Name", model_name)
+        file.write("Parent", file_name)
+        file.release()
+
         if q_stop_signal.empty():
             continue
         if q_stop_signal.get():
             q_break_signal.put(True)
             break
 
-    file = cv2.FileStorage(f"{model_name}_{timestr}.yml", cv2.FILE_STORAGE_WRITE)
-    file.write("Plot", np.array(plots))
-    file.release()
+    #file = cv2.FileStorage(f"{model_name}_{timestr}.yml", cv2.FILE_STORAGE_WRITE)
+    #file.write("Plot", np.array(plots))
+    #file.write("Name", model_name)
+    #file.release()
 
     if cuda:
         empty_cache()
 
-def save_checkpoint(model, optimizer, epoch, loss, acc, path, print_info):
+def save_checkpoint(model, optimizer, epoch, loss, acc, lin_layers, conv_layers, path, print_info):
     checkpoint = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
@@ -147,6 +172,8 @@ def save_checkpoint(model, optimizer, epoch, loss, acc, path, print_info):
         'loss': loss,
         'acc': acc,
         # Add any other information you want to save
+        'lin_layers': lin_layers,
+        'conv_layers': conv_layers
     }
     torch.save(checkpoint, path)
     if(print_info):

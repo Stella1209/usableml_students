@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 class Adjustable_model(nn.Module):
     
-    def __init__(self, linear_layers, convolutional_layers = [], output_classes = 10, input_size = (28,28)):
+    def __init__(self, linear_layers = [], convolutional_layers = [], output_classes = 10, input_size = (28,28)):
         super(Adjustable_model, self).__init__()
         
         output_size = input_size

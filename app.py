@@ -15,7 +15,7 @@ from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
 
 from ml_utils.model import Adjustable_model
-from ml_utils.training import training, load_checkpoint
+from ml_utils.training import training, load_checkpoint, prepare_training
 
 import math
 import gradio as gr
@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 
 import cv2
+import torch
 
 
 # app = Flask(__name__)
@@ -50,6 +51,7 @@ q_loss = queue.Queue()
 q_stop_signal = queue.Queue()
 q_epoch = queue.Queue()
 q_break_signal = queue.Queue()
+visible_plots = gr.LinePlot()
 
 accs = []
 losses = []
@@ -95,16 +97,35 @@ def index():
                            loss=loss, epoch = epoch, loss_plot = loss_img_url, 
                            lr=lr, n_epochs=n_epochs, batch_size=batch_size)
     
-def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
-    global current_model
+def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
+    #global current_model
     conv_layers_proto =  [{'size' : conv_layer_size, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2}, 
                           {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 2, 'padding' : 0}]
     if conv_layer_num > len(conv_layers_proto):
         conv_layers_proto = conv_layers_proto + [{'size' : conv_layer_size} for i in range(conv_layer_num - len(conv_layers_proto))]
     lin_layers = [lin_layer_size for i in range(lin_layer_num)]
-    conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
+    conv_layers = [conv_layers_proto[i % 2] for i in range(conv_layer_num)]
     
     current_model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
+    checkpoint = {
+        'epoch': 0,
+        'model_state_dict': current_model.state_dict(),
+        'optimizer_state_dict': current_model.state_dict(),
+        'loss': 1,
+        'acc': 0,
+        'lin_layers': lin_layers,
+        'conv_layers': conv_layers
+        # Add any other information you want to save
+    }
+    #timestr = time.strftime("%Y%m%d-%H%M%S")
+    path=f"{model_name}.pt"
+    torch.save(checkpoint, path)
+
+    file = cv2.FileStorage(f"{model_name}.yml", cv2.FILE_STORAGE_WRITE)
+    file.write("Plot", np.array([]))
+    file.write("Name", model_name)
+    file.release()
+
     return
 
 # @app.route("/start_training", methods=["POST"])
@@ -199,6 +220,30 @@ def resume_training(seed, lr, batch_size, n_epochs):
              q_epoch=q_epoch,
              q_break_signal = q_break_signal,
              q_stop_signal=q_stop_signal)
+    return #jsonify({"success": True})
+
+def new_resume_training(model_name, seed, lr, batch_size, n_epochs):
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model
+
+    manual_seed(seed)
+    np.random.seed(seed)
+
+    print("Starting training with:")
+    print(f"Seed: {seed}")
+    print(f"Learning rate: {lr}")
+    print(f"Number of epochs: {n_epochs}")
+    print(f"Batch size: {batch_size}")
+
+    prepare_training(file_name=model_name[:(len(model_name)-3)],
+             n_epochs=n_epochs,
+             batch_size=batch_size,
+             q_acc=q_acc,
+             q_loss=q_loss,
+             q_epoch=q_epoch,
+             q_break_signal = q_break_signal,
+             q_stop_signal=q_stop_signal,
+             learning_rate=lr,
+             seed=seed)
     return #jsonify({"success": True})
 
 #app.route("/revert_to_last_epoch", methods=["GET", "POST"])
@@ -387,31 +432,65 @@ def get_statistics():
 """
 #str("Epoch:         " + str(epoch) + "\n" + "Accuracy:      " + str(acc) + "\n" + "Loss:          " + str(loss))
 
+labels_rp, epochs_rp, values_rp = [], [], []
+labels_ap, epochs_ap, values_ap = [], [], []
+
 def make_plot():
-    global accs, losses
-    training_steps = []
-    max_len = min([len(accs), len(losses)])
-    for j in range(2):
-        for i in range(max_len):
-            training_steps.append(i + 1)
+    global accs, losses, epochs, labels_rp, epochs_rp, values_rp, labels_ap, epochs_ap, values_ap
+
+    #training_steps = []
+    max_len = min([len(accs), len(losses), len(epochs)])
+    #for j in range(2):
+    #    for i in range(max_len):
+    #        training_steps.append(i + 1)
     #plot = gr.LinePlot(value=pd.DataFrame({"Epoch": training_steps, "Accuracy": accs, "Loss": losses}), x="Epoch", y="Accuracy")
-    plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Epochs": training_steps}), x="Epochs", y="Values", color="Labels")
+    #plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Epochs": training_steps}), x="Epochs", y="Values", color="Labels")
+    
+    """
+    out_labels = np.concatenate([np.array(["Accuracy - Current Run" for _ in range(max_len)] + ["Loss - Current Run" for _ in range(max_len)]), labels_rp])
+    out_values = np.concatenate([np.array(accs[:max_len] + losses[:max_len]), values_rp])
+    out_epochs = np.concatenate([np.array(epochs[:max_len] + epochs[:max_len]), epochs_rp])
+    print(len(out_labels), len(out_values), len(out_epochs))
+    print(out_labels)
+    print(out_values)
+    print(out_epochs)
+    """
+
+    plot = gr.LinePlot(value=pd.DataFrame({"Labels": np.concatenate([np.array(["Accuracy - Current Run" for _ in range(max_len)] + ["Loss - Current Run" for _ in range(max_len)]), labels_rp]), 
+                                           "Values": np.concatenate([np.array(accs[:max_len] + losses[:max_len]), values_rp]), 
+                                           "Epochs": np.concatenate([np.array(epochs[:max_len] + epochs[:max_len]), epochs_rp])}), 
+                                           x="Epochs", y="Values", color="Labels")
     return plot
 
-def load_graph(files: [str]):
-    file = cv2.FileStorage(files[0], cv2.FILE_STORAGE_READ)
-    plots = file.getNode("Plot").mat()
-    print(plots)
-    print(plots[-1])
-    print(plots[-1][0])
-    print(plots[-1][1])
-    print(plots[-1][2])
-    max_len = min([len(plots[-1][0]), len(plots[-1][1])])
-    print(["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)])
-    print(plots[-1][2] + plots[-1][1])
-    print(plots[-1][0] + plots[-1][0])
-    plot = gr.LinePlot(value=pd.DataFrame({"Labels": np.concatenate([["Accuracy" for _ in range(max_len)], ["Loss" for _ in range(max_len)]]), "Values": np.concatenate([plots[-1][2], plots[-1][1]]), "Epochs": np.concatenate([plots[-1][0], plots[-1][0]])}), x="Epochs", y="Values", color="Labels")
-    return plot
+def load_graph(file_names: [str]):
+    global labels_rp, epochs_rp, values_rp
+    labels_rp, epochs_rp, values_rp = [], [], []
+    for file_name in file_names:
+        file = cv2.FileStorage(file_name, cv2.FILE_STORAGE_READ)
+        plots = np.array(file.getNode("Plot").mat())
+        if plots.size == 1:
+            plots = np.empty((3, 0), float)
+        print(plots)
+        data_points = len(plots[0])
+        labels_rp = np.append(labels_rp, np.concatenate([[f"Accuracy - {file_name}" for _ in range(data_points)], [f"Loss - {file_name}" for _ in range(data_points)]]))
+        epochs_rp = np.append(epochs_rp, np.concatenate([plots[0], plots[0]]))
+        values_rp = np.append(values_rp, np.concatenate([plots[1], plots[2]]))
+
+        #print(plots[-1])
+        #print(plots[-1][0])
+        #print(plots[-1][1])
+        #print(plots[-1][2])
+        #max_len = min([len(plots[-1][0]), len(plots[-1][1])])
+        #print(["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)])
+        #print(plots[-1][2] + plots[-1][1])
+        #print(plots[-1][0] + plots[-1][0])
+        #plot = gr.LinePlot(value=pd.DataFrame({"Labels": np.concatenate([["Accuracy" for _ in range(max_len)], ["Loss" for _ in range(max_len)]]), "Values": np.concatenate([plots[-1][2], plots[-1][1]]), "Epochs": np.concatenate([plots[-1][0], plots[-1][0]])}), x="Epochs", y="Values", color="Labels")
+
+    #plot = gr.LinePlot(value=pd.DataFrame({"Labels": labels_rp, "Values": values_rp, "Epochs": epochs_rp}), x="Epochs", y="Values", color="Labels")
+    #global visible_plots
+    #visible_plots = plot
+
+    #return plot
 
 
 #def make_example_graphs():
@@ -426,23 +505,21 @@ with gr.Blocks() as demo:
             with gr.Column():
                 with gr.Tab("Select Model"):
                     gr.Markdown("Select Model & Dataset")
-                    gr.Dropdown(label="Select Model")
-                    gr.Dropdown(label="Dataset")
-                    gr.FileExplorer("**/*.pt")
+                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single")
+                    gr.Dropdown(label="Select Dataset")
                 with gr.Tab("Create Model"):
                     gr.Markdown("Create Model")
-                    gr.Textbox(label="Model Name")
+                    model_name = gr.Textbox(label="Model Name")
                     #gr.Dropdown(label="Model Type")
                     #gr.Slider(label="Number of Layers")
                     #gr.Slider(label="Kernel Size")
                     #gr.Button(value="Create Model")
-                
                     in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1) 
                     in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1)               
                     in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1)
                     in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1)
                     button_create_model = gr.Button(value="Create Model")
-                    button_create_model.click(simple_model_creator, inputs=[in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
+                    button_create_model.click(simple_model_creator, inputs=[model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
                     gr.Button(value="Display Model")
             with gr.Column():
                  with gr.Tab("Adjustable Parameters"):
@@ -455,7 +532,7 @@ with gr.Blocks() as demo:
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_start = gr.Button(value="Start/Continue")
-                            button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Stop")
                             button_stop.click(stop_training, inputs=None, outputs=None)
@@ -469,7 +546,7 @@ with gr.Blocks() as demo:
                     #out_accuracy = gr.Textbox(label="Accuracy")
                     #out_loss = gr.Textbox(label="Loss")
                     select_plot = gr.FileExplorer("**/*.yml", file_count="multiple")
-                    select_plot.change(load_graph, inputs=[select_plot], outputs=[training_plot])
+                    select_plot.change(load_graph, inputs=[select_plot], outputs=[])
                     #select_plot = gr.Dropdown([], value=[], multiselect=True, label="Models to plot", info="Select model training graphs to display in the plot")
                     training_info = gr.Markdown()
                 with gr.Tab("Testing"):
