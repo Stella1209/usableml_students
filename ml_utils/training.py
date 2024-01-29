@@ -40,15 +40,17 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
              start_epoch: int, batch_size: int, q_acc: Queue = None, q_loss: Queue = None, 
              q_epoch: Queue = None, 
              q_break_signal:Queue = None,
-             stop_signal: bool = False, 
              q_stop_signal: Queue = None):
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
+    stop = False
     if cuda:
         model.cuda()
     counter = 20
     for epoch in range(start_epoch, n_epochs):
+        q_epoch.put(epoch)
         print(f"Epoch {epoch} starts...")
         path=f"stop{epoch}.pt"
+        print(f"Epoch {epoch} in progress...")
         for batch in train_loader:
             data, target = batch
             train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
@@ -65,9 +67,14 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
                     continue
                 if q_stop_signal.get():
                     q_break_signal.put(True)
-                    print("successfully stopped")
+                    stop=True
                     break
+        if stop:
+            print("successfully stopped")
+            break
         print(f"epoch{epoch} is done!")
+        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
+        print(f"The checkpoint for epoch: {epoch} is saved!")
         
     if cuda:
         empty_cache()

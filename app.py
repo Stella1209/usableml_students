@@ -1,11 +1,11 @@
-import threading
+# import threading
 import queue
 import webbrowser
 import base64
 import time
 
-from io import BytesIO
-from matplotlib.figure import Figure
+# from io import BytesIO
+# from matplotlib.figure import Figure
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -17,10 +17,10 @@ import matplotlib.pyplot as plt
 from ml_utils.model import ConvolutionalNeuralNetwork
 from ml_utils.training import training, load_checkpoint
 
-import math
+# import math
 import gradio as gr
 import time
-import datetime
+# import datetime
 import plotly.express as px
 import numpy as np
 import pandas as pd
@@ -32,7 +32,7 @@ import pandas as pd
 
 
 # Initialize variables
-# seed = 42
+seed = 42
 acc = -1
 loss = 0.1
 n_epochs = 10
@@ -48,23 +48,24 @@ q_acc = queue.Queue()
 q_loss = queue.Queue()
 q_stop_signal = queue.Queue()
 q_epoch = queue.Queue()
+q_break_signal = queue.Queue()
 
 accs = []
 losses = []
 epochs = []
 
-q_break_signal = queue.Queue()
+
 
 def listener():
     global q_acc, q_loss, q_stop_signal, q_break_signal, q_epoch, \
-    epoch, acc, loss, stop_signal, epoch_losses, loss_img_url
+    epoch, acc, loss, stop_signal, loss_img_url
     while True:
         acc = q_acc.get()
         loss = q_loss.get()
         epoch = q_epoch.get()
         while((epoch_losses.get(epoch) is None) & (epoch != -1)):
             epoch_losses[epoch] = loss
-        loss_img_url = loss_plot_url()
+        # loss_img_url = loss_plot_url()
         q_acc.task_done()
         q_loss.task_done()
         q_epoch.task_done()
@@ -72,18 +73,17 @@ def listener():
 
 
 # @app.route("/", methods=["GET", "POST"])
-def index():
-    global seed, acc, loss, epoch, epoch_losses, loss_img_url, lr, n_epochs, batch_size
-    # render "index.html" as long as user is at "/"
-    return render_template("index.html", seed=seed, acc=acc, \
-                           loss=loss, epoch = epoch, loss_plot = loss_img_url, 
-                           lr=lr, n_epochs=n_epochs, batch_size=batch_size)
+# def index():
+#     global seed, acc, loss, epoch, loss_img_url, lr, n_epochs, batch_size
+#     # render "index.html" as long as user is at "/"
+#     return render_template("index.html", seed=seed, acc=acc, \
+#                            loss=loss, epoch = epoch, loss_plot = loss_img_url, 
+#                            lr=lr, n_epochs=n_epochs, batch_size=batch_size)
 
 # @app.route("/start_training", methods=["POST"])
 def start_training(seed, lr, batch_size, n_epochs):
-    print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, loss
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
@@ -106,9 +106,8 @@ def start_training(seed, lr, batch_size, n_epochs):
              q_loss=q_loss,
              q_epoch=q_epoch,
              q_break_signal = q_break_signal,
-             stop_signal= stop_signal,
              q_stop_signal=q_stop_signal)
-    return jsonify({"success": True})
+    # return jsonify({"success": True})
 
 # @app.route("/stop_training", methods=["POST"])
 def stop_training():
@@ -119,41 +118,52 @@ def stop_training():
         break_signal = q_break_signal.get(block=True)
     if break_signal:
         print("Training breaks!")
-    return jsonify({"success": True})
+    # return jsonify({"success": True})
 
 # @app.route("/resume_training", methods=["POST"])
-def resume_training(seed, learning_rate, batch_size, n_epochs):
+def resume_training(seed, lr, batch_size, n_epochs):
     global break_signal, epoch, q_acc, q_loss, q_epoch, q_stop_signal
-
     manual_seed(seed)
     np.random.seed(seed)
-
     break_signal = False
     print(f"Resume from epoch {epoch}")
-    path = f"stop{epoch}.pt"
-    model = ConvolutionalNeuralNetwork()
-    opt = SGD(model.parameters(), lr=lr, momentum=0.5)
-    checkpoint = load_checkpoint(model, path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    opt.load_state_dict(checkpoint['optimizer_state_dict'])
-    print(f"Epoch {epoch} loaded, ready to resume training!")
-    training(model=model,
+    try:
+        path = f"stop{epoch-1}.pt"
+        model = ConvolutionalNeuralNetwork()
+        opt = SGD(model.parameters(), lr=lr, momentum=0.5)
+        checkpoint = load_checkpoint(model, path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        opt.load_state_dict(checkpoint['optimizer_state_dict'])
+        print(f"Epoch {epoch-1} loaded, ready to resume training!")
+        training(model=model,
+                optimizer=opt,
+                cuda=False,
+                n_epochs=n_epochs,
+                start_epoch=checkpoint['epoch']+1,
+                batch_size=batch_size,
+                q_acc=q_acc,
+                q_loss=q_loss,
+                q_epoch=q_epoch,
+                q_break_signal = q_break_signal,
+                q_stop_signal=q_stop_signal)
+    except:
+        training(model=model,
              optimizer=opt,
              cuda=False,
              n_epochs=n_epochs,
-             start_epoch=checkpoint['epoch']+1,
+             start_epoch=0,
              batch_size=batch_size,
              q_acc=q_acc,
              q_loss=q_loss,
              q_epoch=q_epoch,
              q_break_signal = q_break_signal,
              q_stop_signal=q_stop_signal)
-    return #jsonify({"success": True})
+    # return jsonify({"success": True})
 
 
 # @app.route("/revert_to_last_epoch", methods=["GET", "POST"])
 def revert_to_last_epoch():
-    global break_signal, epoch, epoch_losses, loss, lr, q_epoch, loss_img_url
+    global break_signal, epoch, loss, lr, q_epoch, loss_img_url
     # check if the training is already stopped, if not, stop first
     if not break_signal:
         q_stop_signal.put(True)
@@ -171,8 +181,8 @@ def revert_to_last_epoch():
     print(f"After revert epoch is {epoch}")
     print(f"current epoch_losses:{epoch_losses}")
     # call loss_plot to draw the new plot
-    loss_img_url = loss_plot_url()
-    return jsonify({"epoch_losses": epoch_losses})
+    # loss_img_url = loss_plot_url()
+    # return jsonify({"epoch_losses": epoch_losses})
     
 
 # @app.route("/update_seed", methods=["POST"])
@@ -279,11 +289,23 @@ def make_plot():
     plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Training Steps": training_steps}), x="Training Steps", y="Values", color="Labels")
     return plot
 
+# def make_accuracy_plot():
+#     global accs
+#     training_steps = list(range(1, len(accs) + 1))
+#     plot = gr.LinePlot(
+#         value=pd.DataFrame({"Epoch": training_steps, "Accuracy": accs}),
+#         x="Epoch", y="Accuracy"
+#     )
+#     return plot
 
-#def make_example_graphs():
-#    file = cv2.FileStorage("test.yml", cv2.FILE_STORAGE_WRITE)
-#    file.write("graph", )
-#    file.release()
+# def make_loss_plot():
+#     global losses
+#     training_steps = list(range(1, len(losses) + 1))
+#     plot = gr.LinePlot(
+#         value=pd.DataFrame({"Epoch": training_steps, "Loss": losses}),
+#         x="Epoch", y="Loss"
+#     )
+#     return plot
 
 
 with gr.Blocks() as demo:
@@ -308,18 +330,22 @@ with gr.Blocks() as demo:
                     in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
                     in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
                     in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
-                    in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=100, step=1)
+                    in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=50, step=1)
                     gr.Dropdown(label="Loss Function")
                     with gr.Row():
                         with gr.Column(min_width=100):
-                            button_start = gr.Button(value="Start/Continue")
+                            button_start = gr.Button(value="Start")
                             button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Stop")
                             button_stop.click(stop_training, inputs=None, outputs=None)
-                        #with gr.Column(min_width=100):
-                        #    button_continue = gr.Button(value="Continue")
-                        #    button_continue.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                        with gr.Column(min_width=100):
+                            button_stop = gr.Button(value="Resume")
+                            button_stop.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                    with gr.Row():
+                        with gr.Column(min_width=100):
+                            button_stop = gr.Button(value="Revert to last epoch")
+                            button_stop.click(revert_to_last_epoch, inputs=None, outputs=None)
             with gr.Column():
                 with gr.Tab("Training"):
                     gr.Markdown("Training")
@@ -358,6 +384,9 @@ The deviation between the result and the reference image is mathematically recor
     #demo.load(get_loss, None, out_loss, every=1)
     dep1 = demo.load(get_statistics, None, training_info, every=0.5)
     dep2 = demo.load(make_plot, None, training_plot, every=0.5)
+    # dep2 = demo.load(make_accuracy_plot, None, training_plot, every=0.5)
+    # dep3 = demo.load(make_loss_plot, None, training_plot, every=0.5)
+    
     #demo.load(listener, None, None, every=1)
     #dep1 = demo.load(get_accuracy, None, None, every=0.5)
     #dep2 = demo.load(get_loss, None, None, every=0.5)
