@@ -10,6 +10,7 @@ from matplotlib.figure import Figure
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 import numpy as np
+import torch.nn as nn
 from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
@@ -25,12 +26,14 @@ socketio = SocketIO(app)
 seed = 42
 acc = -1
 loss = 0.1
+loss_fn=nn.CrossEntropyLoss()
 n_epochs = 10
 epoch = -1
 epoch_losses = dict.fromkeys(range(n_epochs))
 stop_signal = False
 break_signal = False
 data_image = base64.b64encode(b"").decode("ascii")
+loss_img_url = f"data:image/png;base64,{data_image}"
 loss_img_url = f"data:image/png;base64,{data_image}"
 lr = 0.3
 batch_size = 256
@@ -62,16 +65,17 @@ def listener():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    global seed, acc, loss, epoch, epoch_losses, loss_img_url, lr, n_epochs, batch_size
+    global seed, acc, loss, epoch, epoch_losses, loss_img_url, lr, n_epochs, batch_size, loss_fn
     # render "index.html" as long as user is at "/"
     return render_template("index.html", seed=seed, acc=acc, \
                            loss=loss, epoch = epoch, loss_plot = loss_img_url, 
-                           lr=lr, n_epochs=n_epochs, batch_size=batch_size)
+                           lr=lr, n_epochs=n_epochs, batch_size=batch_size,
+                           loss_fn=loss_fn)
 
 @app.route("/start_training", methods=["POST"])
 def start_training():
     # ensure that these variables are the same as those outside this method
-    global q_acc, q_loss, seed, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, lr, n_epochs, batch_size
+    global q_acc, q_loss, seed, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, lr, n_epochs, batch_size, loss_fn
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
@@ -84,9 +88,11 @@ def start_training():
     print(f"Learning rate: {lr}")
     print(f"Number of epochs: {n_epochs}")
     print(f"Batch size: {batch_size}")
+    print(f"Loss function: {loss_fn}")
     # execute training
     training(model=model,
              optimizer=opt,
+             loss_fn=loss_fn,
              cuda=False,
              n_epochs=n_epochs,
              start_epoch=0,
@@ -127,6 +133,7 @@ def resume_training():
     print(f"Epoch {epoch} loaded, ready to resume training!")
     training(model=model,
              optimizer=opt,
+             loss_fn=loss_fn,
              cuda=False,
              n_epochs=n_epochs,
              start_epoch=checkpoint['epoch']+1,
@@ -248,6 +255,17 @@ def update_batch_size():
     global batch_size
     batch_size = int(request.form["batch_size"])
     return jsonify({"batch_size": batch_size})
+
+#adjust loss_fn
+@app.route("/update_loss_fn", methods=["POST"])
+def update_loss_fn():
+    global loss_fn
+    loss_dict = {"CrossEntropy":nn.CrossEntropyLoss(),
+                 "NegativeLog":nn.NLLLoss(),
+                 "L1":nn.L1Loss(),
+                 "MSE":nn.MSELoss()}
+    loss_fn = loss_dict[str(request.form["loss_fn"])]
+    return jsonify({"success": True})
 
 @app.route("/get_accuracy")
 def get_accuracy():

@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torch import manual_seed, Tensor
 from torch.cuda import empty_cache
+import torch.nn as nn
 from torch.nn import Module, functional as F
 from torch.optim import Optimizer, SGD
 
@@ -15,19 +16,23 @@ from evaluate import accuracy
 from model import ConvolutionalNeuralNetwork
 
 
-def train_step(model: Module, optimizer: Optimizer, data: Tensor,
+def train_step(model: Module, optimizer: Optimizer, loss_fn: nn, data: Tensor,
                target: Tensor, cuda: bool):
     model.train()
     if cuda:
         data, target = data.cuda(), target.cuda()
     prediction = model(data)
-    loss = F.cross_entropy(prediction, target)
+
+    if (str(loss_fn) == "NLLLoss()"):
+        prediction = F.log_softmax(prediction, dim=1)
+
+    loss = loss_fn(prediction, target)
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
 
 
-def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int, 
+def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epochs: int, 
              start_epoch: int, batch_size: int, q_acc: Queue = None, q_loss: Queue = None, 
              q_epoch: Queue = None, 
              q_break_signal:Queue = None,
@@ -41,9 +46,13 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
         path=f"stop{epoch}.pt"
         for batch in train_loader:
             data, target = batch
-            train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
+
+            if(str(loss_fn) == "MSELoss()" or str(loss_fn) == "L1Loss()"):
+                target = F.one_hot(target, 10).float()
+        
+            train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
-        test_loss, test_acc = accuracy(model, test_loader, cuda)
+        test_loss, test_acc = accuracy(model, test_loader, loss_fn, cuda)
         # if (q_stop_signal.empty() | (not (q_stop_signal.get()))):
         #     if q_acc is not None:
         #         q_acc.put(test_acc)
@@ -66,7 +75,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
         q_epoch.put(epoch) # put to listener
         print(f"epoch{epoch} is done!")
         print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
-        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
+        save_checkpoint(model, optimizer, epoch, test_loss, loss_fn, test_acc, path, False)
         print(f"The checkpoint for epoch: {epoch} is saved!")
         if q_stop_signal.empty():
             continue
@@ -76,13 +85,14 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
     if cuda:
         empty_cache()
 
-def save_checkpoint(model, optimizer, epoch, loss, acc, path, print_info):
+def save_checkpoint(model, optimizer, epoch, loss, acc, loss_fn, path, print_info):
     checkpoint = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
         'acc': acc,
+        'loss_fn': loss_fn,
         # Add any other information you want to save
     }
     torch.save(checkpoint, path)
@@ -114,6 +124,7 @@ def main(seed):
     training(
         model=model,
         optimizer=opt,
+        loss_fn=nn.CrossEntropyLoss(),
         cuda=False,     # change to True to run on nvidia gpu
         n_epochs=10,
         batch_size=256,
