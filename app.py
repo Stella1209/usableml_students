@@ -7,7 +7,7 @@ import time
 # from io import BytesIO
 # from matplotlib.figure import Figure
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 import numpy as np
 from torch import manual_seed, Tensor
@@ -15,16 +15,33 @@ from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
 
 from ml_utils.model import ConvolutionalNeuralNetwork
-from ml_utils.training import training, load_checkpoint
 
 # import math
 import gradio as gr
-import time
 # import datetime
-import plotly.express as px
-import numpy as np
+# import plotly.express as px
 import pandas as pd
 
+from queue import Queue
+import sys
+sys.path.append("ml_utils")
+
+import torch
+from torch.cuda import empty_cache
+from torch.nn import Module, functional as F
+
+# try:
+from ml_utils.data import get_data_loaders
+from ml_utils.evaluate import accuracy
+# except:
+#     from data import get_data_loaders
+#     from evaluate import accuracy
+#     from model import ConvolutionalNeuralNetwork
+
+from torchvision import models
+from torchsummary import summary
+import warnings
+warnings.filterwarnings('ignore')
 #import cv2
 
 # app = Flask(__name__)
@@ -35,6 +52,7 @@ import pandas as pd
 seed = 42
 acc = -1
 loss = 0.1
+text = ""
 n_epochs = 10
 epoch = -1
 epoch_losses = dict.fromkeys(range(n_epochs))
@@ -49,12 +67,99 @@ q_loss = queue.Queue()
 q_stop_signal = queue.Queue()
 q_epoch = queue.Queue()
 q_break_signal = queue.Queue()
+q_text = queue.Queue()
 
 accs = []
 losses = []
 epochs = []
 
+def train_step(model: Module, optimizer: Optimizer, data: Tensor,
+               target: Tensor, cuda: bool):
+    model.train()
+    if cuda:
+        data, target = data.cuda(), target.cuda()
+    prediction = model(data)
+    loss = F.cross_entropy(prediction, target)
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()
 
+
+def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int, 
+             start_epoch: int, batch_size: int, q_acc: Queue = None, q_loss: Queue = None, 
+             q_epoch: Queue = None, 
+             q_break_signal:Queue = None,
+             q_stop_signal: Queue = None,
+             progress=gr.Textbox()):
+    train_loader, test_loader = get_data_loaders(batch_size=batch_size)
+    global q_text
+    stop = False
+    if cuda:
+        model.cuda()
+    counter = 20
+    for epoch in range(start_epoch, n_epochs):
+        q_epoch.put(epoch)
+        print(f"Epoch {epoch} starts...")
+        q_text.put(f"Epoch {epoch} starts...")
+        path=f"stop{epoch}.pt"
+        print(f"Epoch {epoch} in progress...")
+        q_text.put(f"Epoch {epoch} in progress...")
+        for batch in train_loader:
+            data, target = batch
+            train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
+                       target=target)
+            counter += 1
+            if (counter >= 20):
+                counter = 0
+                test_loss, test_acc = accuracy(model, test_loader, cuda)
+                if q_acc is not None:
+                    q_acc.put(test_acc)
+                if q_loss is not None:
+                    q_loss.put(test_loss)
+                if q_stop_signal.empty():
+                    continue
+                if q_stop_signal.get():
+                    q_break_signal.put(True)
+                    stop=True
+                    break
+        if stop:
+            print("successfully stopped")
+            q_text.put("successfully stopped!")
+            break
+        print(f"epoch{epoch} is done!")
+        q_text.put(f"epoch{epoch} is done!")
+        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
+        print(f"The checkpoint for epoch: {epoch} is saved!")
+        q_text.put(f"The checkpoint for epoch: {epoch} is saved!")
+        
+    if cuda:
+        empty_cache()
+
+def save_checkpoint(model, optimizer, epoch, loss, acc, path, print_info):
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+        'acc': acc,
+        # Add any other information you want to save
+    }
+    torch.save(checkpoint, path)
+    if(print_info):
+        print(f"The checkpoint for epoch: {epoch} is saved!")
+            # Print model's state_dict
+        print("Model's state_dict:")
+        for param_tensor in model.state_dict():
+            print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+        print()
+        print("Optimizer's state_dict:")
+        for var_name in optimizer.state_dict():
+            print(var_name, "\t", optimizer.state_dict()[var_name])
+        
+def load_checkpoint(model, path):
+    checkpoint = torch.load(path)
+    model.eval()
+    return checkpoint
 
 def listener():
     global q_acc, q_loss, q_stop_signal, q_break_signal, q_epoch, \
@@ -118,6 +223,7 @@ def stop_training():
         break_signal = q_break_signal.get(block=True)
     if break_signal:
         print("Training breaks!")
+        q_text.put("Training breaks!")
     # return jsonify({"success": True})
 
 # @app.route("/resume_training", methods=["POST"])
@@ -127,6 +233,7 @@ def resume_training(seed, lr, batch_size, n_epochs):
     np.random.seed(seed)
     break_signal = False
     print(f"Resume from epoch {epoch}")
+    q_text.put(f"Resume from epoch {epoch}")
     try:
         path = f"stop{epoch-1}.pt"
         model = ConvolutionalNeuralNetwork()
@@ -135,6 +242,7 @@ def resume_training(seed, lr, batch_size, n_epochs):
         model.load_state_dict(checkpoint['model_state_dict'])
         opt.load_state_dict(checkpoint['optimizer_state_dict'])
         print(f"Epoch {epoch-1} loaded, ready to resume training!")
+        q_text.put(f"Epoch {epoch-1} loaded, ready to resume training!")
         training(model=model,
                 optimizer=opt,
                 cuda=False,
@@ -170,18 +278,24 @@ def revert_to_last_epoch():
         break_signal = q_break_signal.get(block=True)
         if break_signal:
             print("Training breaks!")
+            q_text.put("Training breaks!")
     time.sleep(10)
-    q_epoch.put(epoch-1) 
-    q_loss.put(epoch_losses[epoch-1]) 
-    loss = q_loss.get()
-    epoch = q_epoch.get() 
-    for i in range(epoch+1, n_epochs):
-        while epoch_losses.get(i) is not None:
-            epoch_losses[i] = None
-    print(f"After revert epoch is {epoch}")
-    print(f"current epoch_losses:{epoch_losses}")
+    try:
+        q_epoch.put(epoch-1) 
+        q_loss.put(epoch_losses[epoch-1]) 
+        loss = q_loss.get()
+        epoch = q_epoch.get() 
+        for i in range(epoch+1, n_epochs):
+            while epoch_losses.get(i) is not None:
+                epoch_losses[i] = None
+        print(f"After revert epoch is {epoch}")
+        q_text.put(f"After revert epoch is {epoch}")
+        print(f"current epoch_losses:{epoch_losses}")
     # call loss_plot to draw the new plot
     # loss_img_url = loss_plot_url()
+    except:
+        print("You couldn't revert from epoch 0! You can resume(restart) from epoch 0 now.")
+        q_text.put("You couldn't revert from epoch 0! You can resume(restart) from epoch 0 now.")
     # return jsonify({"epoch_losses": epoch_losses})
     
 
@@ -237,10 +351,10 @@ def get_dict():
     dictTest = dict({"one": "1", "two": "2"})
     return jsonify({"dictTest": dictTest})
 
-# @app.route("/get_loss_image")
-def get_loss_image():
-    global loss_img_url
-    return jsonify({"loss_img_url": loss_img_url})
+# # @app.route("/get_loss_image")
+# def get_loss_image():
+#     global loss_img_url
+#     return jsonify({"loss_img_url": loss_img_url})
 
 
 def get_loss():
@@ -278,6 +392,13 @@ def get_statistics():
 """
 #str("Epoch:         " + str(epoch) + "\n" + "Accuracy:      " + str(acc) + "\n" + "Loss:          " + str(loss))
 
+def get_text():
+    global q_text, text
+    if q_text is not None and q_text.qsize() > 0:
+        text = q_text.get()
+        q_text.task_done()
+    return f"""{text}"""
+
 def make_plot():
     global accs, losses
     training_steps = []
@@ -306,6 +427,11 @@ def make_plot():
 #         x="Epoch", y="Loss"
 #     )
 #     return plot
+
+# def alert(text):
+#     text_component.update(text)
+    
+# iface = gr.Interface(fn=alert, inputs="text", outputs="text")
 
 
 with gr.Blocks() as demo:
@@ -346,6 +472,9 @@ with gr.Blocks() as demo:
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Revert to last epoch")
                             button_stop.click(revert_to_last_epoch, inputs=None, outputs=None)
+                    with gr.Row():
+                        text_component = gr.Markdown()
+                    
             with gr.Column():
                 with gr.Tab("Training"):
                     gr.Markdown("Training")
@@ -378,12 +507,23 @@ In the case of image-to-image processing, there is one image that is processed a
 The deviation between the result and the reference image is mathematically recorded in a value known as a "loss". The neural network calibrates its neurons depending on the amount of the loss, so that large changes are made if the loss is large, i.e. the generated result deviates greatly from the reference image, and small changes are made if the loss is small, i.e. the generated result is similar to the reference image. In this way, the neurons are calibrated in the long term so that the neural network achieves better and better results.\n
 """
 )
+    # def progress(x, progress = gr.Progress()):
+    #     for epoch in range(10):
+    #         progress(0, desc = "test...")
+    #         time.sleep(0.1)
+    #     return x
+    
+    # Add the row to the existing column
+    # iface.add(text_component)
 
-
+    # # Launch the interface
+    # iface.launch()
     #demo.load(get_accuracy, None, out_accuracy, every=1)
     #demo.load(get_loss, None, out_loss, every=1)
+
     dep1 = demo.load(get_statistics, None, training_info, every=0.5)
     dep2 = demo.load(make_plot, None, training_plot, every=0.5)
+    dep3 = demo.load(get_text, None, text_component, every=0.5)
     # dep2 = demo.load(make_accuracy_plot, None, training_plot, every=0.5)
     # dep3 = demo.load(make_loss_plot, None, training_plot, every=0.5)
     
