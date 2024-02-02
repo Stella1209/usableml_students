@@ -1,4 +1,9 @@
 # import threading
+
+import os
+#os.system("pip uninstall -y gradio")
+#os.system("pip install gradio==3.50.2")
+
 import queue
 import webbrowser
 import base64
@@ -13,6 +18,7 @@ import numpy as np
 from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import matplotlib.pyplot as plt
+from sklearn.neural_network import MLPClassifier
 
 from ml_utils.model import ConvolutionalNeuralNetwork
 
@@ -39,6 +45,7 @@ from ml_utils.evaluate import accuracy
 #     from model import ConvolutionalNeuralNetwork
 
 from torchvision import models
+import torchvision.datasets as datasets
 from torchsummary import summary
 import warnings
 warnings.filterwarnings('ignore')
@@ -433,6 +440,27 @@ def make_plot():
     
 # iface = gr.Interface(fn=alert, inputs="text", outputs="text")
 
+mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
+mnist_testset = datasets.MNIST(root='./data', train=False, download=True, transform=None)
+
+x_train=mnist_trainset.data.numpy()
+x_test=mnist_testset.data.numpy()
+y_train=mnist_trainset.targets.numpy()
+y_test=mnist_testset.targets.numpy()
+
+x_train=x_train.reshape(60000,784)/255.0
+x_test=x_test.reshape(10000,784)/255.0
+
+mlp = MLPClassifier(hidden_layer_sizes=(32,32))
+mlp.fit(x_train, y_train)
+
+print("Training Accuracy:", mlp.score(x_train, y_train))
+print("Testing Accuracy:", mlp.score(x_test, y_test))
+
+def predictIt(img):
+    img = img.reshape(1,784)/255.0
+    prediction = mlp.predict(img)[0]
+    return int(prediction)
 
 with gr.Blocks() as demo:
     with gr.Tab("Train/Test"):
@@ -490,7 +518,11 @@ with gr.Blocks() as demo:
                     gr.Button(value="Test")
                     gr.Text(label="Result")
 
-    
+    with gr.Tab("Playground"):
+        gr.Interface(fn=predictIt, 
+                     inputs = gr.Sketchpad(shape = (28, 28), image_mode='L', invert_colors=True, source='canvas'), 
+                     outputs = "label")
+
     with gr.Tab("Info"):
         gr.Markdown(
 """
