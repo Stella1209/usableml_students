@@ -1,6 +1,6 @@
 import os
-os.system("pip uninstall -y gradio")
-os.system("pip install gradio==3.50.2")
+#os.system("pip uninstall -y gradio")
+#os.system("pip install gradio==3.50.2")
 import queue
 import webbrowser
 import base64
@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 from flask import render_template, request, jsonify
 import numpy as np
-from sklearn.neural_network import MLPClassifier
+#from sklearn.neural_network import MLPClassifier
 from torch import manual_seed
 from torch.optim import SGD
 
@@ -19,6 +19,7 @@ from ml_utils.model import Adjustable_model
 from ml_utils.training import training, load_checkpoint, prepare_training
 
 import torchvision.datasets as datasets
+import torchvision.transforms as transforms
 
 import gradio as gr
 import numpy as np
@@ -497,7 +498,7 @@ def load_graph(file_names: [str]):
 #    file.write("graph", )
 #    file.release()
 
-    
+"""
 mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
 mnist_testset = datasets.MNIST(root='./data', train=False, download=True, transform=None)
 
@@ -519,6 +520,36 @@ def predictIt(img):
     img = img.reshape(1,784)/255.0
     prediction = mlp.predict(img)[0]
     return int(prediction)
+"""
+
+def predict(path, img):
+    print(img)
+    model = Adjustable_model()
+    #model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
+    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    checkpoint = load_checkpoint(model, path)
+    model = Adjustable_model(linear_layers = checkpoint['lin_layers'], convolutional_layers = checkpoint['conv_layers'])
+    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    #model = load_checkpoint(model, path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    #model.eval()
+
+    #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
+    #img = img.resize((28,28))
+    img = np.array(cv2.resize(np.array(img), (28,28)))
+    transform = transforms.Compose([transforms.Resize(28),transforms.ToTensor()]) 
+    img_tensor = transform(img).unsqueeze(0)
+    #print(img_tensor.shape)
+    #img_tensor = img_tensor.view(img_tensor.size(0), -1)
+    #img_tensor = torch.tensor(img, dtype=float)
+    img_tensor = img_tensor.float()
+    print(img_tensor) 
+
+    #img = np.array(cv2.resize(np.array(img), (28,28))) #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
+    return model(img_tensor) #str(model(np.array(cv2.resize(np.array(img['layers'][0]), (28,28)))))
+
+    img = np.array(cv2.resize(np.array(img), (28,28))) #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
+    return model(torch.from_numpy(img)) #str(model(np.array(cv2.resize(np.array(img['layers'][0]), (28,28)))))
 
 with gr.Blocks() as demo:
     
@@ -573,13 +604,20 @@ with gr.Blocks() as demo:
                     training_info = gr.Markdown()
                 with gr.Tab("Testing"):
                     gr.Markdown("Testing")
-                    gr.Paint()
-                    gr.Button(value="Test")
-                    gr.Text(label="Result")
+                    #playground_in = gr.Sketchpad(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True) 
+                    playground_in = gr.Sketchpad(image_mode='L', invert_colors=True, source='canvas', type="numpy") #shape = (28, 28), crop_size="1:1", 
+                    #playground_in = gr.Paint(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True)
+                    #playground_in = gr.ImageEditor(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True)
+                    button_test = gr.Button(value="Test")
+                    playground_out = gr.Text(label="Result")
+                    button_test.click(predict, inputs=[select_model, playground_in], outputs=[playground_out])
+
+                """
                 with gr.Tab("Playground"):
                     gr.Interface(fn=predictIt, 
                                  inputs = gr.Sketchpad(shape = (28, 28), image_mode='L', invert_colors=True, source='canvas'), 
                                  outputs = "label")
+                                 """
     
     with gr.Tab("Info"):
         gr.Markdown(
