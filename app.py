@@ -1,4 +1,6 @@
-import threading
+import os
+os.system("pip uninstall -y gradio")
+os.system("pip install gradio==3.50.2")
 import queue
 import webbrowser
 import base64
@@ -7,21 +9,18 @@ import time
 from io import BytesIO
 from matplotlib.figure import Figure
 
-from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO, emit
+from flask import render_template, request, jsonify
 import numpy as np
-from torch import manual_seed, Tensor
-from torch.optim import Optimizer, SGD
-import matplotlib.pyplot as plt
+from sklearn.neural_network import MLPClassifier
+from torch import manual_seed
+from torch.optim import SGD
 
 from ml_utils.model import Adjustable_model
 from ml_utils.training import training, load_checkpoint, prepare_training
 
-import math
+import torchvision.datasets as datasets
+
 import gradio as gr
-import time
-import datetime
-import plotly.express as px
 import numpy as np
 import pandas as pd
 
@@ -498,8 +497,31 @@ def load_graph(file_names: [str]):
 #    file.write("graph", )
 #    file.release()
 
+    
+mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
+mnist_testset = datasets.MNIST(root='./data', train=False, download=True, transform=None)
+
+x_train=mnist_trainset.data.numpy()
+x_test=mnist_testset.data.numpy()
+y_train=mnist_trainset.targets.numpy()
+y_test=mnist_testset.targets.numpy()
+
+x_train=x_train.reshape(60000,784)/255.0
+x_test=x_test.reshape(10000,784)/255.0
+
+mlp = MLPClassifier(hidden_layer_sizes=(32,32))
+mlp.fit(x_train, y_train)
+
+print("Training Accuracy:", mlp.score(x_train, y_train))
+print("Testing Accuracy:", mlp.score(x_test, y_test))
+
+def predictIt(img):
+    img = img.reshape(1,784)/255.0
+    prediction = mlp.predict(img)[0]
+    return int(prediction)
 
 with gr.Blocks() as demo:
+    
     with gr.Tab("Train/Test"):
         with gr.Row():
             with gr.Column():
@@ -554,7 +576,10 @@ with gr.Blocks() as demo:
                     gr.Paint()
                     gr.Button(value="Test")
                     gr.Text(label="Result")
-
+                with gr.Tab("Playground"):
+                    gr.Interface(fn=predictIt, 
+                                 inputs = gr.Sketchpad(shape = (28, 28), image_mode='L', invert_colors=True, source='canvas'), 
+                                 outputs = "label")
     
     with gr.Tab("Info"):
         gr.Markdown(
@@ -572,7 +597,6 @@ In the case of image-to-image processing, there is one image that is processed a
 The deviation between the result and the reference image is mathematically recorded in a value known as a "loss". The neural network calibrates its neurons depending on the amount of the loss, so that large changes are made if the loss is large, i.e. the generated result deviates greatly from the reference image, and small changes are made if the loss is small, i.e. the generated result is similar to the reference image. In this way, the neurons are calibrated in the long term so that the neural network achieves better and better results.\n
 """
 )
-
 
     #demo.load(get_accuracy, None, out_accuracy, every=1)
     #demo.load(get_loss, None, out_loss, every=1)
