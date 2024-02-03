@@ -16,6 +16,8 @@ from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import torch
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 
 from ml_utils.model import Adjustable_model
 from ml_utils.network_drawer import Neuron, Layer, NeuralNetwork, DrawNN
