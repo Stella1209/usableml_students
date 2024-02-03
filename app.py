@@ -132,7 +132,8 @@ def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv
 def start_training(seed, lr, batch_size, n_epochs):
     print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
+    accs, losses, epochs = [], [], []
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
@@ -523,7 +524,26 @@ def predictIt(img):
 """
 
 def predict(path, img):
-    print(img)
+    #print(img)
+    #print(img.shape)
+    img = img['composite']
+    #img = img.reshape((28,28))
+    #print(img)
+    #print(img.shape)
+
+    new_img = []
+    for x in range(len(img)):
+        new_img.append([])
+        for y in range(len(img[x])):
+            #if img[x][y][3] == 0:
+            #    new_img[x].append(255)
+            #else:
+            #    new_img[x].append(0)
+            new_img[x].append(img[x][y][3])
+    img = new_img
+    
+    #print(img)
+
     model = Adjustable_model()
     #model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
     #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
@@ -533,23 +553,33 @@ def predict(path, img):
     #model = load_checkpoint(model, path)
     model.load_state_dict(checkpoint['model_state_dict'])
     #model.eval()
+    #print(model)
 
     #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
     #img = img.resize((28,28))
-    img = np.array(cv2.resize(np.array(img), (28,28)))
-    transform = transforms.Compose([transforms.Resize(28),transforms.ToTensor()]) 
+    img = np.array(cv2.resize(np.array(img).astype('uint8'), (28,28)))
+    #print(img)
+    transform = transforms.Compose([transforms.ToTensor()]) #transforms.Resize(28),
     img_tensor = transform(img).unsqueeze(0)
     #print(img_tensor.shape)
     #img_tensor = img_tensor.view(img_tensor.size(0), -1)
     #img_tensor = torch.tensor(img, dtype=float)
-    img_tensor = img_tensor.float()
-    print(img_tensor) 
+    #img_tensor = img_tensor.float()
+    #print(img_tensor) 
+    #print(img_tensor.shape)
 
     #img = np.array(cv2.resize(np.array(img), (28,28))) #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
-    return model(img_tensor) #str(model(np.array(cv2.resize(np.array(img['layers'][0]), (28,28)))))
+    prediction = model(img_tensor).data
+    #print(prediction)
+    pred_out, pred_index = torch.max(prediction, 1)
+    #print(pred_out, pred_index)
+    return pred_index.item() #str(model(np.array(cv2.resize(np.array(img['layers'][0]), (28,28)))))
 
     img = np.array(cv2.resize(np.array(img), (28,28))) #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
     return model(torch.from_numpy(img)) #str(model(np.array(cv2.resize(np.array(img['layers'][0]), (28,28)))))
+
+def aaa():
+    return np.zeros((28,28))
 
 with gr.Blocks() as demo:
     
@@ -596,21 +626,24 @@ with gr.Blocks() as demo:
                 with gr.Tab("Training"):
                     gr.Markdown("Training")
                     training_plot = gr.LinePlot()
+                    training_info = gr.Markdown()
                     #out_accuracy = gr.Textbox(label="Accuracy")
                     #out_loss = gr.Textbox(label="Loss")
                     select_plot = gr.FileExplorer("**/*.yml", file_count="multiple")
                     select_plot.change(load_graph, inputs=[select_plot], outputs=[])
                     #select_plot = gr.Dropdown([], value=[], multiselect=True, label="Models to plot", info="Select model training graphs to display in the plot")
-                    training_info = gr.Markdown()
                 with gr.Tab("Testing"):
                     gr.Markdown("Testing")
                     #playground_in = gr.Sketchpad(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True) 
-                    playground_in = gr.Sketchpad(image_mode='L', invert_colors=True, source='canvas', type="numpy") #shape = (28, 28), crop_size="1:1", 
+                    #playground_in = gr.Sketchpad(image_mode='L', invert_colors=True, source='canvas', type="numpy") #shape = (28, 28), crop_size="1:1", 
                     #playground_in = gr.Paint(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True)
-                    #playground_in = gr.ImageEditor(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True)
+                    buttoton = gr.Button(value="Magically fix Sketchpad")
+                    #playground_in = gr.ImageEditor(value={'layers': [np.zeros((28,28))], 'background': None, 'composite': None}, image_mode='L', type="numpy", interactive=True)
+                    playground_in = gr.Sketchpad(value=np.zeros((28,28)), crop_size=("1:1"), type="numpy", interactive=True)
                     button_test = gr.Button(value="Test")
                     playground_out = gr.Text(label="Result")
                     button_test.click(predict, inputs=[select_model, playground_in], outputs=[playground_out])
+                    buttoton.click(aaa, inputs=None, outputs=[playground_in])
 
                 """
                 with gr.Tab("Playground"):
@@ -635,6 +668,8 @@ In the case of image-to-image processing, there is one image that is processed a
 The deviation between the result and the reference image is mathematically recorded in a value known as a "loss". The neural network calibrates its neurons depending on the amount of the loss, so that large changes are made if the loss is large, i.e. the generated result deviates greatly from the reference image, and small changes are made if the loss is small, i.e. the generated result is similar to the reference image. In this way, the neurons are calibrated in the long term so that the neural network achieves better and better results.\n
 """
 )
+        
+    #playground_in.value = np.zeros((2800,2800))
 
     #demo.load(get_accuracy, None, out_accuracy, every=1)
     #demo.load(get_loss, None, out_loss, every=1)

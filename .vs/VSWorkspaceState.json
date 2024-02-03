@@ -1,7 +1,8 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\ml_utils"
   ],
-  "SelectedNode": "\\app.py",
+  "SelectedNode": "\\ml_utils\\model.py",
   "PreviewInSolutionExplorer": false
 }

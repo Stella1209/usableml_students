@@ -96,7 +96,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
     file = cv2.FileStorage(f"{file_name}.yml", cv2.FILE_STORAGE_READ)
     model_name = file.getNode("Name").string()
     plots = np.array(file.getNode("Plot").mat())
-    print(plots.size)
+    #print(plots.size)
     if plots.size == 1:
         plots = np.empty((3, 0), float)
     #plots.append([[],[],[]])
@@ -121,7 +121,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
             q_loss.put(test_loss)
         if q_epoch is not None:
             q_epoch.put(epoch)
-        print(plots)
+        #print(plots)
         plots = np.append(plots, np.array([[epoch, test_loss, test_acc]]).transpose(), axis=1)
         #np.append(plots[0], [epoch])
         #np.append(plots[1], [test_loss])
@@ -143,7 +143,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
         #    print(f"The checkpoint for epoch: {epoch} is saved!")
         #    print("successfully stopped")
         
-        print(plots)
+        #print(plots)
         file = cv2.FileStorage(f"{model_name}_{timestr}_{epoch}.yml", cv2.FILE_STORAGE_WRITE)
         file.write("Plot", np.array(plots))
         file.write("Name", model_name)
