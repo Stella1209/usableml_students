@@ -104,14 +104,14 @@ def index():
                            loss=loss, epoch = epoch, loss_plot = loss_img_url, 
                            lr=lr, n_epochs=n_epochs, batch_size=batch_size)
     
-def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
+#def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
 def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
     #global current_model
     if model_name == "":
         print("model needs a name")
         model_name = "unnamed"
-        conv_layers_proto =  [{'size' : conv_layer_size, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2},
-                              {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 1, 'padding' : 0}]
+    conv_layers_proto =  [{'size' : conv_layer_size, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2},
+                            {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 1, 'padding' : 0}]
     if conv_layer_num > len(conv_layers_proto):
         conv_layers_proto = conv_layers_proto + [{'size' : conv_layer_size} for i in range(conv_layer_num - len(conv_layers_proto))]
     lin_layers = [lin_layer_size for i in range(lin_layer_num)]
@@ -294,7 +294,7 @@ def start_training(seed, lr, batch_size, n_epochs):
     np.random.seed(seed)
     # initialize training
     model = current_model
-    opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     #print(learning_rate)
     #print(n_epochs)
     #print(batch_size)
@@ -742,10 +742,10 @@ with gr.Blocks() as demo:
         with gr.Row():
             with gr.Column():
                 with gr.Tab("Select Model"):
-                    gr.Markdown("Select Model & Dataset")
+                    gr.Markdown("Select Model")
                     select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single")
-                    gr.Dropdown(label="Select Dataset")
-                """gr.Markdown("Select Model & Dataset")
+                    """gr.Dropdown(label="Select Dataset")
+                gr.Markdown("Select Model & Dataset")
                     gr.Markdown("Select Model & Dataset")
                     gr.Dropdown(label="Select Model")
                     gr.Dropdown(label="Dataset")
@@ -826,7 +826,8 @@ with gr.Blocks() as demo:
                     button_create_model = gr.Button(value="Create Model")
                     button_create_model.click(simple_model_creator, inputs=[model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
                     gr.Button(value="Display Model")"""
-                 with gr.Tab("Adjustable Parameters"):
+            with gr.Column():
+                with gr.Tab("Adjustable Parameters"):
                     gr.Markdown("Adjustable Parameters")
                     in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
                     in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)

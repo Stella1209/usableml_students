@@ -1,0 +1,9 @@
+%YAML:1.0
+---
+Plot: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ 1., 8.9471299264580004e+00, 9.0140000000000001e+01 ]
+Name: MyAdvancedModel
+Parent: "E:\\Daten\\Studium\\Module\\Softwareprojekt\\GitHub\\webui\\MyAdvancedModel"

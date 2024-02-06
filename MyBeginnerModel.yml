@@ -1,0 +1,8 @@
+%YAML:1.0
+---
+Plot: !!opencv-matrix
+   rows: 0
+   cols: 1
+   dt: d
+   data: []
+Name: MyBeginnerModel
