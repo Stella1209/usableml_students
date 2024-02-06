@@ -102,10 +102,19 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
         plots = np.empty((3, 0), float)
     #plots.append([[],[],[]])
     #np.append(plots, [[],[],[]])
+    if q_acc is not None:
+        for acc in plots[2]:
+            q_acc.put(acc)
+    if q_loss is not None:
+        for loss in plots[1]:
+            q_loss.put(loss)
+    if q_epoch is not None:
+        for epoch in plots[0]:
+            q_epoch.put(epoch)
 
     #counter = 20
     for epoch in range(start_epoch, n_epochs):
-        q_epoch.put(epoch)
+        #q_epoch.put(epoch)
         print(f"Epoch {epoch} starts...")
         path=f"{model_name}_{timestr}_{epoch}.pt"
         for batch in train_loader:

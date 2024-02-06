@@ -9,8 +9,8 @@ from PIL import Image
 import io
 import os
 
-# from io import BytesIO
-# from matplotlib.figure import Figure
+from io import BytesIO
+from matplotlib.figure import Figure
 
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -20,7 +20,7 @@ from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import torch
 import matplotlib.pyplot as plt
-from sklearn.neural_network import MLPClassifier
+#from sklearn.neural_network import MLPClassifier
 import matplotlib
 matplotlib.use('Agg')
 
@@ -29,16 +29,16 @@ from ml_utils.network_drawer import Neuron, Layer, NeuralNetwork, DrawNN
 from ml_utils.training import training, load_checkpoint
 from ml_utils.training import training, load_checkpoint, prepare_training
 from ml_utils.layer_representor import layer_box_representation
-from ml_utils.model import ConvolutionalNeuralNetwork
+#from ml_utils.model import ConvolutionalNeuralNetwork
 
-# import math
+import math
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
 import gradio as gr
 import numpy as np
-# import datetime
-# import plotly.express as px
+import datetime
+import plotly.express as px
 import pandas as pd
 
 from queue import Queue
@@ -66,6 +66,8 @@ warnings.filterwarnings('ignore')
 # app = Flask(__name__)
 # socketio = SocketIO(app)
 
+from torch.nn import Module, functional as F
+from torch.cuda import empty_cache
 
 # Initialize variables
 seed = 42
@@ -1014,9 +1016,9 @@ with gr.Blocks() as demo:
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Stop")
                             button_stop.click(stop_training, inputs=None, outputs=None)
-                        with gr.Column(min_width=100):
-                            button_stop = gr.Button(value="Resume")
-                            button_stop.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                        #with gr.Column(min_width=100):
+                        #    button_stop = gr.Button(value="Resume")
+                        #    button_stop.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Revert to last epoch")
