@@ -5,18 +5,27 @@ import queue
 import webbrowser
 import base64
 import time
+from PIL import Image 
+import io
+import os
 
 from io import BytesIO
 from matplotlib.figure import Figure
 
 from flask import render_template, request, jsonify
 import numpy as np
-#from sklearn.neural_network import MLPClassifier
-from torch import manual_seed
-from torch.optim import SGD
+from torch import manual_seed, Tensor
+from torch.optim import Optimizer, SGD
+import torch
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 
 from ml_utils.model import Adjustable_model
+from ml_utils.network_drawer import Neuron, Layer, NeuralNetwork, DrawNN
+from ml_utils.training import training, load_checkpoint
 from ml_utils.training import training, load_checkpoint, prepare_training
+from ml_utils.layer_representor import layer_box_representation
 
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
@@ -24,6 +33,7 @@ import torchvision.transforms as transforms
 import gradio as gr
 import numpy as np
 import pandas as pd
+
 
 import cv2
 import torch
@@ -58,15 +68,12 @@ losses = []
 epochs = []
 
 current_model = None
-# Default: For now two convolutional layers (The interface will have to be adjusted to be able to set the parameters): 
-#conv_layer1 = {'size' : 32, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2}
-#conv_layer2 = {'size' : 32, 'kernel_size' : 4, 'stride' : 2, 'padding' : 0}
-#in_convolutional_layers = 2
-#conv_layers_proto =  [conv_layer1, conv_layer2, {'size' : 32}, {'size' : 32}, {'size' : 32}]
 
-# Default: One hidden layer with 32 cells:
-#lin1 = 32
-#lin_layers = [32, 32, 32, 32, 32, 32] #, lin2] # Linear layers only have layer size as a parameter
+# For advanced model creator:
+boxes_of_layers = layer_box_representation()
+
+#AdvMC_conv_layers = []
+#AdvMC_lin_layers = []
 
 
 
@@ -97,10 +104,14 @@ def index():
                            loss=loss, epoch = epoch, loss_plot = loss_img_url, 
                            lr=lr, n_epochs=n_epochs, batch_size=batch_size)
     
+def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
 def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
     #global current_model
-    conv_layers_proto =  [{'size' : conv_layer_size, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2}, 
-                          {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 2, 'padding' : 0}]
+    if model_name == "":
+        print("model needs a name")
+        model_name = "unnamed"
+        conv_layers_proto =  [{'size' : conv_layer_size, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2},
+                              {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 1, 'padding' : 0}]
     if conv_layer_num > len(conv_layers_proto):
         conv_layers_proto = conv_layers_proto + [{'size' : conv_layer_size} for i in range(conv_layer_num - len(conv_layers_proto))]
     lin_layers = [lin_layer_size for i in range(lin_layer_num)]
@@ -113,6 +124,7 @@ def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv
         'optimizer_state_dict': current_model.state_dict(),
         'loss': 1,
         'acc': 0,
+        'model_name': model_name,
         'lin_layers': lin_layers,
         'conv_layers': conv_layers
         # Add any other information you want to save
@@ -128,18 +140,161 @@ def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv
 
     return
 
+def simple_model_drawer(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
+    inp = [1]
+    for i in range(conv_layer_num):
+        inp.append(conv_layer_size)
+    for i in range(lin_layer_num):
+        inp.append(lin_layer_size)
+    inp.append(10)
+    print(inp)
+    network = DrawNN( inp, conv_layer_num )
+    return network.draw()
+
+def fig2img(fig): 
+    buf = io.BytesIO() 
+    fig.savefig(buf, bbox_inches='tight')
+    buf.seek(0) 
+    img = Image.open(buf) 
+    return img 
+
+def make_img(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
+    fig = simple_model_drawer(conv_layer_num = conv_layer_num, lin_layer_num = lin_layer_num, conv_layer_size = conv_layer_size, lin_layer_size = lin_layer_size)
+    img = fig2img(fig) 
+    # Save image with the help of save() Function. 
+    img.save('network.png') 
+    #return os.path.join(os.path.dirname(__file__), "network.png")
+    return img
+
+# complex_model_creator:
+# create base box layout (only input and output boxes) to start:
+def base_boxes():
+    fig = boxes_of_layers.display_current_boxes()
+    img = fig2img(fig)
+    img.save('layer_boxes.png')
+    
+base_boxes()
+
+def add_conv_layer(convolutional_cells=32, kernel_size=3, padding=0, stride=1, output_function="Tanh", pooling="off" ):
+    conv_layer = {"size" : convolutional_cells, 
+             "kernel_size" : kernel_size, 
+             "padding" : padding, 
+             "stride" : stride, 
+             "output_function" : output_function, 
+             "pooling" : pooling}
+    boxes_of_layers.add_conv_layer(conv_layer)
+    
+    fig = boxes_of_layers.display_current_boxes()
+    img = fig2img(fig)
+    img.save('layer_boxes.png')
+    
+    return img
+
+def delete_last_conv_layer():
+    if len(boxes_of_layers.get_conv_layers()) >= 1:
+        boxes_of_layers.remove_conv_layer() 
+    
+    fig = boxes_of_layers.display_current_boxes()
+    img = fig2img(fig)
+    img.save('layer_boxes.png')
+    
+    return img
+
+def add_lin_layer(linear_cells=32, output_function="Tanh"):
+    lin_layer = {"linear_cells" : linear_cells, "output_function" : output_function}
+    boxes_of_layers.add_lin_layer(lin_layer)
+    
+    fig = boxes_of_layers.display_current_boxes()
+    img = fig2img(fig)
+    img.save('layer_boxes.png')
+    
+    return img
+
+def delete_last_lin_layer():
+    if len(boxes_of_layers.get_lin_layers()) >= 1:
+        boxes_of_layers.remove_lin_layer()
+    
+    fig = boxes_of_layers.display_current_boxes()
+    img = fig2img(fig)
+    img.save('layer_boxes.png')
+    
+    return img
+
+def draw_complex_model():
+    inp = [1]
+    conv_layers = boxes_of_layers.get_conv_layers()
+    lin_layer_dicts = boxes_of_layers.get_lin_layers()
+    
+    lin_layers = [i["linear_cells"] for i in lin_layer_dicts]
+    
+    for i in conv_layers:
+        inp.append(i["size"])
+    for i in lin_layers:
+        inp.append(i)
+    inp.append(10)
+    print(inp)
+    
+    network = DrawNN( inp, len(conv_layers) )
+    
+    img = fig2img(network.draw()) 
+    # Save image with the help of save() Function. 
+    img.save('network.png') 
+    #return os.path.join(os.path.dirname(__file__), "network.png")
+    return img
+
+def complex_model_creator(model_name):
+    global current_model
+    if model_name == "":
+        print("model needs a name")
+        model_name = "unnamed"
+    
+    conv_layers = boxes_of_layers.get_conv_layers()
+    lin_layer_dicts = boxes_of_layers.get_lin_layers()
+    
+    lin_layers = [i["linear_cells"] for i in lin_layer_dicts]
+    
+    current_model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
+    checkpoint = {
+        'epoch': 0,
+        'model_state_dict': current_model.state_dict(),
+        'optimizer_state_dict': current_model.state_dict(),
+        'loss': 1,
+        'acc': 0,
+        'lin_layers': lin_layers,
+        'conv_layers': conv_layers
+        # Add any other information you want to save
+    }
+    #timestr = time.strftime("%Y%m%d-%H%M%S")
+    path=f"{model_name}.pt"
+    print(current_model)
+    torch.save(checkpoint, path)
+
+    file = cv2.FileStorage(f"{model_name}.yml", cv2.FILE_STORAGE_WRITE)
+    file.write("Plot", np.array([]))
+    file.write("Name", model_name)
+    file.release()
+
+    return draw_complex_model()
+
+    
+
 # @app.route("/start_training", methods=["POST"])
 def start_training(seed, lr, batch_size, n_epochs):
     print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
+    #global q_acc, q_loss, stop_signal, epoch, epoch_losses, loss, current_model
     global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
     accs, losses, epochs = [], [], []
+        
+    #lin_layers = [32 for i in range(lin_layer_num)]
+    #conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
+    
     # determine pseudo-random number generation
     manual_seed(seed)
     np.random.seed(seed)
     # initialize training
     model = current_model
-    #print(seed)
+    opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     #print(learning_rate)
     #print(n_epochs)
     #print(batch_size)
@@ -590,6 +745,73 @@ with gr.Blocks() as demo:
                     gr.Markdown("Select Model & Dataset")
                     select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single")
                     gr.Dropdown(label="Select Dataset")
+                """gr.Markdown("Select Model & Dataset")
+                    gr.Markdown("Select Model & Dataset")
+                    gr.Dropdown(label="Select Model")
+                    gr.Dropdown(label="Dataset")
+                    gr.FileExplorer("**/*.pt")"""
+                with gr.Tab("Create Model"):                    
+                    with gr.Tab("Beginner Model Creator"):
+                        in_model_name = gr.Textbox(label="Model Name", value="unnamed")
+                        in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1) 
+                        in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1)               
+                        in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1)
+                        in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1)
+                        button_create_model = gr.Button(value="Create Model")
+                        button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
+                        button_display = gr.Button(value="Display Model")
+                        #network_plot = gr.Plot()
+                        
+                        network_img = gr.Image(type='filepath', value='network.png')#type="pil")
+                        button_display.click(make_img, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)          
+                        #gr.Interface(make_img, gr.Image(type="pil", value=None), "image")
+                        
+                    with gr.Tab("Advanced Model Creator"):
+                        gr.Markdown("Only recommended to people with a good understanding of ML")
+                        in_model_name = gr.Textbox(label="Model Name", value="unnamed")
+                        with gr.Column():   
+                            gr.Markdown("Add Convolutional Layer")                         
+                            in_conv_cells = gr.Slider(label="Cells of convolutional layer", value=32, minimum=1, maximum=128, step=1)
+                            in_kernel_size = gr.Slider(label="Kernel size", value=3, minimum=2, maximum=9, step=1)
+                            in_padding = gr.Slider(label="Padding", value=0, minimum=0, maximum=5, step=1)
+                            in_stride = gr.Slider(label="Stride", value=1, minimum=1, maximum=7, step=1)
+                            in_conv_output_fct = gr.Dropdown(["Tanh", "Softmax", "ReLu"], label="Output Function", value="Tanh",
+                                                        info="Sticking to one output function recommended")
+                            in_2Dpooling = gr.Dropdown(["Off", "2", "3", "4", "5"], label="2D Pooling", value="Off")
+                        with gr.Row():
+                            gr.Markdown("Add Linear Layer")
+                            in_lin_cells = gr.Slider(label="Cells of linear layer", value=32, minimum=1, maximum=128, step=1)
+                            in_lin_output_fct = gr.Dropdown(["Tanh", "Softmax", "ReLu"], label="Output Function", value="Tanh",
+                                                        info="Sticking to one output function recommended")
+                        with gr.Row():    
+                            button_add_conv_layer = gr.Button(value="Add Convolutional Layer")
+                            button_delete_conv_layer = gr.Button(value="Remove Last Convolutional Layer")
+                            button_add_lin_layer = gr.Button(value="Add Linear Layer")
+                            button_delete_lin_layer = gr.Button(value="Remove Last Linear Layer")
+                            layer_box_img = gr.Image(type='filepath', value='layer_boxes.png')
+                            button_add_conv_layer.click(add_conv_layer, inputs=[in_conv_cells, in_kernel_size, in_padding, in_stride, in_conv_output_fct, in_2Dpooling], outputs=layer_box_img)
+                            button_delete_conv_layer.click(delete_last_conv_layer, outputs=layer_box_img)
+                            button_add_lin_layer.click(add_lin_layer, inputs=[in_lin_cells, in_lin_output_fct], outputs=layer_box_img)
+                            button_delete_lin_layer.click(delete_last_lin_layer, outputs=layer_box_img)                        
+                        #with gr.Row():
+                        button_complex_create_model = gr.Button(value="Create Model")
+                        network_img = gr.Image(type='filepath', value='network.png')
+                        button_complex_create_model.click(complex_model_creator, inputs=[in_model_name], outputs=network_img)
+                        
+                        #button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
+                        #button_display = gr.Button(value="Display Model")
+                        #output = gr.Plot()
+                        #button_display.click(simple_model_drawer, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=output)          
+                        #network_plot = gr.Plot()
+                        #gr.Interface(
+                        #    fn=simple_model_drawer,
+                        #    inputs= [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin],
+                        #    outputs=gr.Plot())
+            """with gr.Column():
+                with gr.Tab("Select Model"):
+                    gr.Markdown("Select Model & Dataset")
+                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single")
+                    gr.Dropdown(label="Select Dataset")
                 with gr.Tab("Create Model"):
                     gr.Markdown("Create Model")
                     model_name = gr.Textbox(label="Model Name")
@@ -603,8 +825,7 @@ with gr.Blocks() as demo:
                     in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1)
                     button_create_model = gr.Button(value="Create Model")
                     button_create_model.click(simple_model_creator, inputs=[model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
-                    gr.Button(value="Display Model")
-            with gr.Column():
+                    gr.Button(value="Display Model")"""
                  with gr.Tab("Adjustable Parameters"):
                     gr.Markdown("Adjustable Parameters")
                     in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
@@ -675,6 +896,7 @@ The deviation between the result and the reference image is mathematically recor
     #demo.load(get_loss, None, out_loss, every=1)
     dep1 = demo.load(get_statistics, None, training_info, every=0.5)
     dep2 = demo.load(make_plot, None, training_plot, every=0.5)
+    #dep3 = demo.load(simple_model_drawer, None, network_plot)
     #demo.load(listener, None, None, every=1)
     #dep1 = demo.load(get_accuracy, None, None, every=0.5)
     #dep2 = demo.load(get_loss, None, None, every=0.5)
