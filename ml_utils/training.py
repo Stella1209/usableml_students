@@ -88,6 +88,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
              file_name: str = None,
              lin_layers: int = 0, conv_layers: int = 0):
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
+    stop = False
     if cuda:
         model.cuda()
     stop_signal = False
@@ -104,6 +105,7 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
 
     #counter = 20
     for epoch in range(start_epoch, n_epochs):
+        q_epoch.put(epoch)
         print(f"Epoch {epoch} starts...")
         path=f"{model_name}_{timestr}_{epoch}.pt"
         for batch in train_loader:
@@ -154,7 +156,10 @@ def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int,
             continue
         if q_stop_signal.get():
             q_break_signal.put(True)
+            stop=True
             break
+        if stop:
+            print("successfully stopped")
 
     #file = cv2.FileStorage(f"{model_name}_{timestr}.yml", cv2.FILE_STORAGE_WRITE)
     #file.write("Plot", np.array(plots))
@@ -194,7 +199,7 @@ def load_checkpoint(model, path):
 
 
 
-def main(seed):
+"""def main(seed):
     print("init...")
     manual_seed(seed)
     np.random.seed(seed)
@@ -207,10 +212,25 @@ def main(seed):
         cuda=False,     # change to True to run on nvidia gpu
         n_epochs=10,
         batch_size=256,
-    )
+    )"""
+
+# def main(seed):
+#     print("init...")
+#     manual_seed(seed)
+#     np.random.seed(seed)
+#     model = ConvolutionalNeuralNetwork()
+#     opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
+#     print("train...")
+#     training(
+#         model=model,
+#         optimizer=opt,
+#         cuda=False,     # change to True to run on nvidia gpu
+#         n_epochs=10,
+#         batch_size=256,
+#     )
 
 
-if __name__ == "__main__":
-    main(seed=0)
-    # print(f"The final accuracy is: {final_test_acc}")
+# if __name__ == "__main__":
+#     main(seed=0)
+#     # print(f"The final accuracy is: {final_test_acc}")
 
