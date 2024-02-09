@@ -444,7 +444,7 @@ def stop_training():
         q_stop_signal.put(True)
     stop_signal = True  # Set the stop signal to True
     # saveCheckpoint()
-    return gr.update(visible=False) #jsonify({"success": True})
+    return #gr.update(visible=False) #jsonify({"success": True})
 
     #global break_signal
     #if not break_signal:
@@ -1059,7 +1059,7 @@ with gr.Blocks() as demo:
             
             button_start.click(bbb, inputs=None, outputs=spinner)
             button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
-            button_stop.click(stop_training, inputs=None, outputs=spinner)
+            button_stop.click(stop_training, inputs=None, outputs=None)
                     
             with gr.Column():
                 with gr.Tab("Training"):
