@@ -34,7 +34,7 @@ def prepare_training(file_name: str, n_epochs: int,
              q_stop_signal: Queue = None,
              learning_rate: float = 0.001, 
              seed: int = 42,
-             loss_fn: nn):
+             loss_fn: str = "CrossEntropyLoss"):
     
     manual_seed(seed)
     np.random.seed(seed)
@@ -54,6 +54,10 @@ def prepare_training(file_name: str, n_epochs: int,
     model.load_state_dict(checkpoint['model_state_dict'])
     #opt.load_state_dict(checkpoint['optimizer_state_dict'])
     print(f"Epoch {n_epochs} loaded, ready to resume training!")
+
+    loss_fns = {"CrossEntropyLoss": nn.CrossEntropyLoss(), "NLLLoss": nn.NLLLoss(), "MSELoss": nn.MSELoss(), "L1Loss": nn.L1Loss()}
+    loss_fn = loss_fns[loss_fn]
+
     training(model=model,
              optimizer=opt,
              cuda=False,
@@ -65,7 +69,8 @@ def prepare_training(file_name: str, n_epochs: int,
              q_epoch=q_epoch,
              q_break_signal = q_break_signal,
              q_stop_signal=q_stop_signal, 
-             file_name=file_name, lin_layers = checkpoint['lin_layers'], conv_layers = checkpoint['conv_layers'])
+             file_name=file_name, lin_layers = checkpoint['lin_layers'], conv_layers = checkpoint['conv_layers'],
+             loss_fn=loss_fn)
     
 
 

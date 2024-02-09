@@ -547,7 +547,7 @@ def resume_training(seed, lr, batch_size, n_epochs):
     # return jsonify({"success": True})
 
 
-def new_resume_training(model_name, seed, lr, batch_size, n_epochs):
+def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
     global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model
 
     manual_seed(seed)
@@ -568,7 +568,8 @@ def new_resume_training(model_name, seed, lr, batch_size, n_epochs):
              q_break_signal = q_break_signal,
              q_stop_signal=q_stop_signal,
              learning_rate=lr,
-             seed=seed)
+             seed=seed, 
+             loss_fn=loss_fn)
     return #jsonify({"success": True})
 
 #app.route("/revert_to_last_epoch", methods=["GET", "POST"])
@@ -685,7 +686,7 @@ def update_batch_size():
     return jsonify({"batch_size": batch_size})
 
 #adjust loss_fn
-@app.route("/update_loss_fn", methods=["POST"])
+#@app.route("/update_loss_fn", methods=["POST"])
 def update_loss_fn():
     global loss_fn
     loss_dict = {"CrossEntropy":nn.CrossEntropyLoss(),
@@ -695,7 +696,7 @@ def update_loss_fn():
     loss_fn = loss_dict[str(request.form["loss_fn"])]
     return jsonify({"success": True})
 
-@app.route("/get_accuracy")
+#@app.route("/get_accuracy")
 def get_accuracy():
     global acc
     return jsonify({"acc": acc})
@@ -1022,11 +1023,11 @@ with gr.Blocks() as demo:
                     in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
                     in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
                     in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=50, step=1)
-                    gr.Dropdown(label="Loss Function")
+                    in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_start = gr.Button(value="Start/Continue")
-                            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=None)
                             #button_start = gr.Button(value="Start")
                             #button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                         with gr.Column(min_width=100):
