@@ -16,6 +16,7 @@ from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask import render_template, request, jsonify
 import numpy as np
+import torch.nn as nn
 from torch import manual_seed, Tensor
 from torch.optim import Optimizer, SGD
 import torch
@@ -74,12 +75,14 @@ seed = 42
 acc = -1
 loss = 0.1
 text = ""
+loss_fn=nn.CrossEntropyLoss()
 n_epochs = 10
 epoch = -1
 epoch_losses = dict.fromkeys(range(n_epochs))
 stop_signal = False
 break_signal = False
 data_image = base64.b64encode(b"").decode("ascii")
+loss_img_url = f"data:image/png;base64,{data_image}"
 loss_img_url = f"data:image/png;base64,{data_image}"
 lr = 0.3
 batch_size = 256
@@ -204,7 +207,7 @@ def listener():
 
 # @app.route("/", methods=["GET", "POST"])
 def index():
-    global seed, acc, loss, epoch, epoch_losses, loss_img_url, lr, n_epochs, batch_size
+    global seed, acc, loss, epoch, epoch_losses, loss_img_url, lr, n_epochs, batch_size, loss_fn
     # render "index.html" as long as user is at "/"
     return render_template("index.html", seed=seed, acc=acc, \
                            loss=loss, epoch = epoch, loss_plot = loss_img_url, 
@@ -396,7 +399,7 @@ def start_training(seed, lr, batch_size, n_epochs):
     print("starting Training with seed " + str(seed))
     # ensure that these variables are the same as those outside this method
     #global q_acc, q_loss, stop_signal, epoch, epoch_losses, loss, current_model
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs, loss_fn
     accs, losses, epochs = [], [], []
         
     #lin_layers = [32 for i in range(lin_layer_num)]
@@ -418,9 +421,11 @@ def start_training(seed, lr, batch_size, n_epochs):
     print(f"Learning rate: {lr}")
     print(f"Number of epochs: {n_epochs}")
     print(f"Batch size: {batch_size}")
+    print(f"loss function: {loss_fn}")
     # execute training
     training(model=model,
              optimizer=opt,
+             loss_fn=loss_fn,
              cuda=False,
              n_epochs=n_epochs,
              start_epoch=0,
@@ -542,7 +547,7 @@ def resume_training(seed, lr, batch_size, n_epochs):
     # return jsonify({"success": True})
 
 
-def new_resume_training(model_name, seed, lr, batch_size, n_epochs):
+def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
     global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
     accs, losses, epochs = [], [], []
 
@@ -564,7 +569,8 @@ def new_resume_training(model_name, seed, lr, batch_size, n_epochs):
              q_break_signal = q_break_signal,
              q_stop_signal=q_stop_signal,
              learning_rate=lr,
-             seed=seed)
+             seed=seed, 
+             loss_fn=loss_fn)
     return gr.update(visible=False) #jsonify({"success": True})
 
 #app.route("/revert_to_last_epoch", methods=["GET", "POST"])
@@ -680,7 +686,18 @@ def update_batch_size():
     batch_size = int(request.form["batch_size"])
     return jsonify({"batch_size": batch_size})
 
-# @app.route("/get_accuracy")
+#adjust loss_fn
+#@app.route("/update_loss_fn", methods=["POST"])
+def update_loss_fn():
+    global loss_fn
+    loss_dict = {"CrossEntropy":nn.CrossEntropyLoss(),
+                 "NegativeLog":nn.NLLLoss(),
+                 "L1":nn.L1Loss(),
+                 "MSE":nn.MSELoss()}
+    loss_fn = loss_dict[str(request.form["loss_fn"])]
+    return jsonify({"success": True})
+
+#@app.route("/get_accuracy")
 def get_accuracy():
     global acc
     return jsonify({"acc": acc})
@@ -1014,11 +1031,11 @@ with gr.Blocks() as demo:
                     in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
                     in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
                     in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=50, step=1)
-                    gr.Dropdown(label="Loss Function")
+                    in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_start = gr.Button(value="Start/Continue")
-                            #button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=spinner)
+                            #button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=None)
                             #button_start = gr.Button(value="Start")
                             #button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                         with gr.Column(min_width=100):
@@ -1041,7 +1058,7 @@ with gr.Blocks() as demo:
                             pass
             
             button_start.click(bbb, inputs=None, outputs=spinner)
-            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=spinner)
+            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
             button_stop.click(stop_training, inputs=None, outputs=spinner)
                     
             with gr.Column():

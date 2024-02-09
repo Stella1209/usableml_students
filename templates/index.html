@@ -22,6 +22,20 @@
     <input type="range" id="slider_batches" min="0" max="1000" step="1.0" value="{{ batch_size }}">
     <span id="sliderValue_batches">{{ batch_size }}</span>
     </p>
+
+    <p>
+        <label for="select_loss_fn">Choose a loss function:</label>
+
+        <select name="loss_fn" id="select_loss_fn">
+        <!--<option value="">--Please choose an option--</option>-->
+        <option value="CrossEntropy">Cross Entropy Loss</option>
+        <option value="NegativeLog">Negative Log Likelihood Loss</option>
+        <option value="L1">L1 Loss</option>
+        <option value="MSE">Mean Squared Error</option>
+        </select>
+    </p>
+
+    <p>Current Epoch: <span id="epoch">{{ epoch }}</span></p>
     <p>Last Finished Epoch: <span id="epoch">{{ epoch }}</span></p>
     <!-- <p>Current running Epoch: <span>{{ current_epoch }}</span></p> -->
     <p>Current Accuracy: <span id="accuracy">{{ acc }}</span></p>
