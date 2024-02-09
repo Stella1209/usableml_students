@@ -444,7 +444,7 @@ def stop_training():
         q_stop_signal.put(True)
     stop_signal = True  # Set the stop signal to True
     # saveCheckpoint()
-    return #jsonify({"success": True})
+    return gr.update(visible=False) #jsonify({"success": True})
 
     #global break_signal
     #if not break_signal:
@@ -548,7 +548,8 @@ def resume_training(seed, lr, batch_size, n_epochs):
 
 
 def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
+    accs, losses, epochs = [], [], []
 
     manual_seed(seed)
     np.random.seed(seed)
@@ -570,7 +571,7 @@ def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
              learning_rate=lr,
              seed=seed, 
              loss_fn=loss_fn)
-    return #jsonify({"success": True})
+    return gr.update(visible=False) #jsonify({"success": True})
 
 #app.route("/revert_to_last_epoch", methods=["GET", "POST"])
 def revert_to_last_epoch():
@@ -926,6 +927,11 @@ def predict(path, img):
 def aaa():
     return np.zeros((28,28))
 
+def bbb():
+    return gr.update(visible=True)
+
+visibleee = True
+
 with gr.Blocks() as demo:
     
     with gr.Tab("Train/Test"):
@@ -933,7 +939,9 @@ with gr.Blocks() as demo:
             with gr.Column():
                 with gr.Tab("Select Model"):
                     gr.Markdown("Select Model")
-                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single")
+                    button_refresh = gr.Button(value="Refresh File Explorers")
+                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single", interactive=True)
+                    button_refresh.click(None, js="window.location.reload()")
                     """gr.Dropdown(label="Select Dataset")
                 gr.Markdown("Select Model & Dataset")
                     gr.Markdown("Select Model & Dataset")
@@ -1027,21 +1035,31 @@ with gr.Blocks() as demo:
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_start = gr.Button(value="Start/Continue")
-                            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=None)
+                            #button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=None)
                             #button_start = gr.Button(value="Start")
                             #button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Stop")
-                            button_stop.click(stop_training, inputs=None, outputs=None)
+                            #button_stop.click(stop_training, inputs=None, outputs=None)
                         #with gr.Column(min_width=100):
                         #    button_stop = gr.Button(value="Resume")
                         #    button_stop.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                     with gr.Row():
-                        with gr.Column(min_width=100):
-                            button_stop = gr.Button(value="Revert to last epoch")
-                            button_stop.click(revert_to_last_epoch, inputs=None, outputs=None)
+                        button_revert = gr.Button(value="Revert to last epoch")
+                        button_revert.click(revert_to_last_epoch, inputs=None, outputs=None)
                     with gr.Row():
                         text_component = gr.Markdown()
+                    with gr.Row():
+                        with gr.Column(min_width=50):
+                            pass
+                        with gr.Column(min_width=50):
+                            spinner = gr.Image("https://csi.itpvoip.com/secure/images/new-progress-bar.gif", label="Training...", visible=False, scale=1, show_download_button=False)
+                        with gr.Column(min_width=50):
+                            pass
+            
+            button_start.click(bbb, inputs=None, outputs=spinner)
+            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
+            button_stop.click(stop_training, inputs=None, outputs=spinner)
                     
             with gr.Column():
                 with gr.Tab("Training"):
@@ -1108,6 +1126,7 @@ The deviation between the result and the reference image is mathematically recor
     dep1 = demo.load(get_statistics, None, training_info, every=0.5)
     dep2 = demo.load(make_plot, None, training_plot, every=0.5)
     dep3 = demo.load(get_text, None, text_component, every=0.5)
+    #dep4 = demo.load(lambda :gr.update(visible=True), None, select_model, every=0.5)
     # dep2 = demo.load(make_accuracy_plot, None, training_plot, every=0.5)
     # dep3 = demo.load(make_loss_plot, None, training_plot, every=0.5)
     
