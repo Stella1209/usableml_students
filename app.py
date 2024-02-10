@@ -571,7 +571,7 @@ def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
              learning_rate=lr,
              seed=seed, 
              loss_fn=loss_fn)
-    return gr.update(visible=False) #jsonify({"success": True})
+    return gr.update() #jsonify({"success": True})
 
 #app.route("/revert_to_last_epoch", methods=["GET", "POST"])
 def revert_to_last_epoch():
@@ -929,7 +929,7 @@ def aaa():
     return np.zeros((28,28))
 
 def bbb():
-    return gr.update(visible=True)
+    return gr.update()
 
 visibleee = True
 embed_html = '<iframe width="560" height="315" src="https://www.youtube.com/embed/bfmFfD2RIcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
@@ -1029,6 +1029,13 @@ with gr.Blocks() as demo:
             with gr.Column():
                 with gr.Tab("Adjustable Parameters"):
                     gr.Markdown("Adjustable Parameters")
+                    with gr.Row():
+                        with gr.Column(min_width=50):
+                            pass
+                        with gr.Column(min_width=50):
+                            spinner = gr.Image(type='filepath', value='lama.png', label="Training...", scale=1, show_download_button=False, container=False, show_label=False)
+                        with gr.Column(min_width=50):
+                            pass
                     in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
                     in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
                     in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
@@ -1051,13 +1058,6 @@ with gr.Blocks() as demo:
                         button_revert.click(revert_to_last_epoch, inputs=None, outputs=None)
                     with gr.Row():
                         text_component = gr.Markdown()
-                    with gr.Row():
-                        with gr.Column(min_width=50):
-                            pass
-                        with gr.Column(min_width=50):
-                            spinner = gr.Image(None, label="Training...", visible=False, scale=1, show_download_button=False)
-                        with gr.Column(min_width=50):
-                            pass
             
             button_start.click(bbb, inputs=None, outputs=spinner)
             button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
