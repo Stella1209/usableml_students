@@ -766,9 +766,9 @@ def get_statistics():
         q_epoch.task_done()
         epochs.append(epoch)
     return f"""
-    Epoch: \t {epoch}\n
-    Accuracy: \t {acc}\n
-    Loss: \t {loss}
+    Epoch: &emsp; &emsp; {int(epoch)}<br />
+    Accuracy: &emsp; {acc}<br />
+    Loss: &emsp; &emsp; &emsp; {loss}
 """
 #str("Epoch:         " + str(epoch) + "\n" + "Accuracy:      " + str(acc) + "\n" + "Loss:          " + str(loss))
 
@@ -817,9 +817,10 @@ def load_graph(file_names: [str]):
         plots = np.array(file.getNode("Plot").mat())
         if plots.size == 1:
             plots = np.empty((3, 0), float)
-        print(plots)
+        #print(plots)
         data_points = len(plots[0])
-        labels_rp = np.append(labels_rp, np.concatenate([[f"Accuracy - {file_name}" for _ in range(data_points)], [f"Loss - {file_name}" for _ in range(data_points)]]))
+        basename = os.path.basename(file_name)
+        labels_rp = np.append(labels_rp, np.concatenate([[f"Loss - {basename}" for _ in range(data_points)], [f"Accuracy - {basename}" for _ in range(data_points)]]))
         epochs_rp = np.append(epochs_rp, np.concatenate([plots[0], plots[0]]))
         values_rp = np.append(values_rp, np.concatenate([plots[1], plots[2]]))
 
