@@ -932,6 +932,7 @@ def bbb():
     return gr.update(visible=True)
 
 visibleee = True
+embed_html = '<iframe width="560" height="315" src="https://www.youtube.com/embed/bfmFfD2RIcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
 
 with gr.Blocks() as demo:
     
@@ -1054,7 +1055,7 @@ with gr.Blocks() as demo:
                         with gr.Column(min_width=50):
                             pass
                         with gr.Column(min_width=50):
-                            spinner = gr.Image("https://csi.itpvoip.com/secure/images/new-progress-bar.gif", label="Training...", visible=False, scale=1, show_download_button=False)
+                            spinner = gr.Image(None, label="Training...", visible=False, scale=1, show_download_button=False)
                         with gr.Column(min_width=50):
                             pass
             
@@ -1093,7 +1094,16 @@ with gr.Blocks() as demo:
                                  """
     
     with gr.Tab("Info"):
-        gr.Markdown(
+        with gr.Row():
+            with gr.Column(min_width=50):
+                pass
+            with gr.Column(min_width=50):
+                gr.HTML(embed_html)
+                #gr.Video("https://www.youtube.com/embed/bfmFfD2RIcg")
+            with gr.Column(min_width=50):
+                pass
+        with gr.Row():
+            gr.Markdown(
 """
 Introduction to Machine Learning\n\n
 In order to explain the term machine learning, we must first deal with the term artificial intelligence. Artificial intelligence is a scientific discipline that focuses on the research and algorithmization of preferably human intelligence in the form of automatically usable perception and "mind power".\n\n
