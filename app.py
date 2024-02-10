@@ -1028,7 +1028,7 @@ with gr.Blocks() as demo:
                     gr.Button(value="Display Model")"""
             with gr.Column():
                 with gr.Tab("Adjustable Parameters"):
-                    gr.Markdown("Adjustable Parameters")
+                    gr.Markdown("<h1>Adjustable Parameters</h1>")
                     with gr.Row():
                         with gr.Column(min_width=50):
                             pass
@@ -1036,11 +1036,31 @@ with gr.Blocks() as demo:
                             spinner = gr.Image(type='filepath', value='lama.png', label="Training...", scale=1, show_download_button=False, container=False, show_label=False)
                         with gr.Column(min_width=50):
                             pass
-                    in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
-                    in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
-                    in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
-                    in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=50, step=1)
-                    in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
+                    with gr.Row():
+                        with gr.Tab("lr"):
+                            in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
+                        with gr.Tab("info"):
+                            gr.Markdown("determines the step size for learning steps.\n A large value ensures fast learning, which reduces the training time, but also the accuracy. Smaller steps lead to more accurate results, but also increase the training duration. As a rule higher values are used at the beginning, then the training process is interrupted in between and smaller values are the selected.")
+                    with gr.Row():
+                        with gr.Tab("bs"):
+                            in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
+                        with gr.Tab("info"):
+                            gr.Markdown("The <b>batch size</b> is the number of samples (here images) used per training step. A high value leads to better accuracy, but prolongs the training process.")
+                    with gr.Row():
+                        with gr.Tab("seed"):
+                            in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
+                        with gr.Tab("info"):
+                            gr.Markdown("Has no direct influence on accuracy or training duration. The <b>seed</b> roughly allows you to achieve different results when training with the same parameters.")
+                    with gr.Row():
+                        with gr.Tab("ep"):
+                            in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=50, step=1)
+                        with gr.Tab("info"):
+                            gr.Markdown("The number of <b>epochs/training steps</b> that the training process is carried out in. A high value leads to better accuracy, but prolongs the training process.")
+                    with gr.Row():
+                        with gr.Tab("lf"):   
+                            in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
+                        with gr.Tab("info"):
+                            gr.Markdown("The <b>loss function</b> determines how the model learns from decisions. It has no direct influence on accuracy or training duration. The most suitable function must be determined by testing. It is not actually changed during the training process.")
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_start = gr.Button(value="Start/Continue")
