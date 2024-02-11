@@ -27,8 +27,6 @@ matplotlib.use('Agg')
 
 from ml_utils.model import Adjustable_model
 from ml_utils.network_drawer import Neuron, Layer, NeuralNetwork, DrawNN
-from ml_utils.training import training, load_checkpoint
-from ml_utils.training import training, load_checkpoint, prepare_training
 from ml_utils.layer_representor import layer_box_representation
 #from ml_utils.model import ConvolutionalNeuralNetwork
 
@@ -100,13 +98,62 @@ epochs = []
 
 current_model = None
 
-def train_step(model: Module, optimizer: Optimizer, data: Tensor,
+def prepare_training(file_name: str, 
+                     n_epochs: int, 
+                     start_epoch: int,
+                     batch_size: int, 
+                     q_acc: Queue = None, 
+                     q_loss: Queue = None, 
+                     q_epoch: Queue = None, 
+                     q_break_signal:Queue = None,
+                     q_stop_signal: Queue = None,
+                     learning_rate: float = 0.001, 
+                     seed: int = 42,
+                     loss_fn: str = "CrossEntropyLoss"):
+    manual_seed(seed)
+    np.random.seed(seed)
+
+    path = f"{file_name}.pt"
+    if q_stop_signal is not None:
+        q_stop_signal.put(False)
+    model = Adjustable_model()
+    #model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
+    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    checkpoint = load_checkpoint(model, path)
+    model = Adjustable_model(linear_layers = checkpoint['lin_layers'], convolutional_layers = checkpoint['conv_layers'])
+    opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
+    #model = load_checkpoint(model, path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    #opt.load_state_dict(checkpoint['optimizer_state_dict'])
+
+    loss_fns = {"CrossEntropyLoss": nn.CrossEntropyLoss(), "NLLLoss": nn.NLLLoss(), "MSELoss": nn.MSELoss(), "L1Loss": nn.L1Loss()}
+    loss_fn = loss_fns[loss_fn]
+
+    training(model=model,
+             optimizer=opt,
+             cuda=False,
+             n_epochs=n_epochs,
+             start_epoch=start_epoch, 
+             batch_size=batch_size,
+             q_acc=q_acc,
+             q_loss=q_loss,
+             q_epoch=q_epoch,
+             q_break_signal = q_break_signal,
+             q_stop_signal=q_stop_signal, 
+             file_name=file_name, lin_layers = checkpoint['lin_layers'], conv_layers = checkpoint['conv_layers'],
+             loss_fn=loss_fn)
+
+def train_step(model: Module, optimizer: Optimizer, loss_fn: nn, data: Tensor,
                target: Tensor, cuda: bool):
     model.train()
     if cuda:
         data, target = data.cuda(), target.cuda()
     prediction = model(data)
-    loss = F.cross_entropy(prediction, target)
+
+    if (str(loss_fn) == "NLLLoss()"):
+        prediction = F.log_softmax(prediction, dim=1)
+
+    loss = loss_fn(prediction, target)
     loss.backward()
     optimizer.step()
     optimizer.zero_grad()
@@ -114,64 +161,94 @@ def train_step(model: Module, optimizer: Optimizer, data: Tensor,
 # For advanced model creator:
 boxes_of_layers = layer_box_representation()
 
-def training(model: Module, optimizer: Optimizer, cuda: bool, n_epochs: int, 
+def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epochs: int, 
              start_epoch: int, batch_size: int, q_acc: Queue = None, q_loss: Queue = None, 
              q_epoch: Queue = None, 
              q_break_signal:Queue = None,
-             q_stop_signal: Queue = None,
-             progress=gr.Textbox()):
+             q_stop_signal: Queue = None, 
+             file_name: str = None,
+             lin_layers: int = 0, conv_layers: int = 0):
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
     global q_text
     stop = False
     if cuda:
         model.cuda()
-    counter = 20
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+
+    file = cv2.FileStorage(f"{file_name}.yml", cv2.FILE_STORAGE_READ)
+    model_name = file.getNode("Name").string()
+    plots = np.array(file.getNode("Plot").mat())
+    if plots.size == 1:
+        plots = np.empty((3, 0), float)
+    if q_acc is not None:
+        for acc in plots[2]:
+            q_acc.put(acc)
+    if q_loss is not None:
+        for loss in plots[1]:
+            q_loss.put(loss)
+    if q_epoch is not None:
+        for epoch in plots[0]:
+            q_epoch.put(epoch)
+
     for epoch in range(start_epoch, n_epochs):
-        q_epoch.put(epoch)
+        #q_epoch.put(epoch)
         print(f"Epoch {epoch} starts...")
         q_text.put(f"Epoch {epoch} starts...")
-        path=f"stop{epoch}.pt"
-        print(f"Epoch {epoch} in progress...")
-        q_text.put(f"Epoch {epoch} in progress...")
+        path=f"{model_name}_{timestr}_{epoch}.pt"
         for batch in train_loader:
             data, target = batch
-            train_step(model=model, optimizer=optimizer, cuda=cuda, data=data,
-                       target=target)
-            counter += 1
-            if (counter >= 20):
-                counter = 0
-                test_loss, test_acc = accuracy(model, test_loader, cuda)
-                if q_acc is not None:
-                    q_acc.put(test_acc)
-                if q_loss is not None:
-                    q_loss.put(test_loss)
-                if q_stop_signal.empty():
-                    continue
-                if q_stop_signal.get():
+            if q_stop_signal.get():
                     q_break_signal.put(True)
                     stop=True
                     break
+            if(str(loss_fn) == "MSELoss()" or str(loss_fn) == "L1Loss()"):
+                target = F.one_hot(target, 10).float()
+        
+            train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
+                       target=target)
+            
+        test_loss, test_acc = accuracy(model, test_loader, loss_fn, cuda)
+        if q_acc is not None:
+            q_acc.put(test_acc)
+        if q_loss is not None:
+            q_loss.put(test_loss)
+        if q_epoch is not None:
+            q_epoch.put(epoch)
+        #print(plots)
+        plots = np.append(plots, np.array([[epoch, test_loss, test_acc]]).transpose(), axis=1)
+        print(f"epoch{epoch} is done!")
+        q_text.put(f"epoch{epoch} is done!")
+        print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
+        save_checkpoint(model, optimizer, epoch, test_loss, loss_fn, test_acc, lin_layers, conv_layers, path, False)
+        print(f"The checkpoint for epoch: {epoch} is saved!")
+        q_text.put(f"The checkpoint for epoch: {epoch} is saved!")
+        
+        #print(plots)
+        file = cv2.FileStorage(f"{model_name}_{timestr}_{epoch}.yml", cv2.FILE_STORAGE_WRITE)
+        file.write("Plot", np.array(plots))
+        file.write("Name", model_name)
+        file.write("Parent", file_name)
+        file.release()
+
         if stop:
             print("successfully stopped")
             q_text.put("successfully stopped!")
             break
-        print(f"epoch{epoch} is done!")
-        q_text.put(f"epoch{epoch} is done!")
-        save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
-        print(f"The checkpoint for epoch: {epoch} is saved!")
-        q_text.put(f"The checkpoint for epoch: {epoch} is saved!")
-        
+    
     if cuda:
         empty_cache()
 
-def save_checkpoint(model, optimizer, epoch, loss, acc, path, print_info):
+def save_checkpoint(model, optimizer, epoch, loss, acc, loss_fn, lin_layers, conv_layers, path, print_info):
     checkpoint = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
         'acc': acc,
+        'loss_fn': loss_fn,
         # Add any other information you want to save
+        'lin_layers': lin_layers,
+        'conv_layers': conv_layers
     }
     torch.save(checkpoint, path)
     if(print_info):
@@ -204,14 +281,6 @@ def listener():
         q_loss.task_done()
         q_epoch.task_done()
 
-
-# @app.route("/", methods=["GET", "POST"])
-def index():
-    global seed, acc, loss, epoch, epoch_losses, loss_img_url, lr, n_epochs, batch_size, loss_fn
-    # render "index.html" as long as user is at "/"
-    return render_template("index.html", seed=seed, acc=acc, \
-                           loss=loss, epoch = epoch, loss_plot = loss_img_url, 
-                           lr=lr, n_epochs=n_epochs, batch_size=batch_size)
     
 #def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
 def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
@@ -386,36 +455,15 @@ def complex_model_creator(model_name):
     return draw_complex_model()
 
     
-
-# def index():
-#     global seed, acc, loss, epoch, loss_img_url, lr, n_epochs, batch_size
-#     # render "index.html" as long as user is at "/"
-#     return render_template("index.html", seed=seed, acc=acc, \
-#                            loss=loss, epoch = epoch, loss_plot = loss_img_url, 
-#                            lr=lr, n_epochs=n_epochs, batch_size=batch_size)
-
-# @app.route("/start_training", methods=["POST"])
-def start_training(seed, lr, batch_size, n_epochs):
-    print("starting Training with seed " + str(seed))
-    # ensure that these variables are the same as those outside this method
-    #global q_acc, q_loss, stop_signal, epoch, epoch_losses, loss, current_model
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs, loss_fn
+def start_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
     accs, losses, epochs = [], [], []
-        
-    #lin_layers = [32 for i in range(lin_layer_num)]
-    #conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
     
-    # determine pseudo-random number generation
+    if model_name == None:
+        q_text.put("Select a model first please!")
+
     manual_seed(seed)
     np.random.seed(seed)
-    # initialize training
-    model = current_model
-    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
-    #print(learning_rate)
-    #print(n_epochs)
-    #print(batch_size)
-    #model = ConvolutionalNeuralNetwork()
-    opt = SGD(model.parameters(), lr=lr, momentum=0.5)
     print("Starting training with:")
     print(f"Seed: {seed}")
     print(f"Learning rate: {lr}")
@@ -423,145 +471,9 @@ def start_training(seed, lr, batch_size, n_epochs):
     print(f"Batch size: {batch_size}")
     print(f"loss function: {loss_fn}")
     # execute training
-    training(model=model,
-             optimizer=opt,
-             loss_fn=loss_fn,
-             cuda=False,
-             n_epochs=n_epochs,
-             start_epoch=0,
-             batch_size=batch_size,
-             q_acc=q_acc,
-             q_loss=q_loss,
-             q_epoch=q_epoch,
-             q_break_signal = q_break_signal,
-             q_stop_signal=q_stop_signal)
-    # return jsonify({"success": True})
-
-# @app.route("/stop_training", methods=["POST"])
-def stop_training():
-    global stop_signal, q_stop_signal
-    if q_stop_signal is not None:
-        q_stop_signal.put(True)
-    stop_signal = True  # Set the stop signal to True
-    # saveCheckpoint()
-    return #gr.update(visible=False) #jsonify({"success": True})
-
-    #global break_signal
-    #if not break_signal:
-    #    q_stop_signal.put(True)
-        # set block to true to wait for item if the queue is empty
-    #    break_signal = q_break_signal.get(block=True)
-    #if break_signal:
-    #    print("Training breaks!")
-    #return jsonify({"success": True})
-# @app.route("/resume_training", methods=["POST"])
-
-
-    #lin_layers = [32 for i in range(lin_layer_num)]
-    #conv_layers = [conv_layers_proto[i] for i in range(conv_layer_num)]
-
-#@app.route("/resume_training", methods=["POST"])
-"""def resume_training(seed, lr, batch_size, n_epochs):
-    global break_signal, epoch, q_acc, q_loss, q_epoch, q_stop_signal, stop_signal, current_model
-    manual_seed(seed)
-    np.random.seed(seed)
-
-    path = "stop.pt"
-    if q_stop_signal is not None:
-        q_stop_signal.put(False)
-    stop_signal = False  # Set the stop signal to False
-    # q_stop_signal.put(False)
-    break_signal = False
-    # print(f"before get, epoch is {epoch}")
-    # epoch = q_epoch.get()
-    print(f"Resume from epoch {epoch}")
-    path = f"stop{epoch}.pt"
-    model = current_model
-    opt = SGD(model.parameters(), lr=lr, momentum=0.5)
-    checkpoint = load_checkpoint(model, path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    opt.load_state_dict(checkpoint['optimizer_state_dict'])
-    print(f"Epoch {epoch} loaded, ready to resume training!")
-    training(model=model,
-             optimizer=opt,
-             cuda=False,
-             n_epochs=n_epochs,
-             start_epoch=checkpoint['epoch']+1,
-             batch_size=batch_size,
-             q_acc=q_acc,
-             q_loss=q_loss,
-             q_epoch=q_epoch,
-             q_break_signal = q_break_signal,
-             q_stop_signal=q_stop_signal)
-    return #jsonify({"success": True})
-    global break_signal
-    if not break_signal:
-        q_stop_signal.put(True)
-        # set block to true to wait for item if the queue is empty
-        break_signal = q_break_signal.get(block=True)
-    if break_signal:
-        print("Training breaks!")
-        q_text.put("Training breaks!")
-    # return jsonify({"success": True})
-
-# @app.route("/resume_training", methods=["POST"])
-def resume_training(seed, lr, batch_size, n_epochs):
-    global break_signal, epoch, q_acc, q_loss, q_epoch, q_stop_signal
-    manual_seed(seed)
-    np.random.seed(seed)
-    break_signal = False
-    print(f"Resume from epoch {epoch}")
-    q_text.put(f"Resume from epoch {epoch}")
-    try:
-        path = f"stop{epoch-1}.pt"
-        model = ConvolutionalNeuralNetwork()
-        opt = SGD(model.parameters(), lr=lr, momentum=0.5)
-        checkpoint = load_checkpoint(model, path)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        opt.load_state_dict(checkpoint['optimizer_state_dict'])
-        print(f"Epoch {epoch-1} loaded, ready to resume training!")
-        q_text.put(f"Epoch {epoch-1} loaded, ready to resume training!")
-        training(model=model,
-                optimizer=opt,
-                cuda=False,
-                n_epochs=n_epochs,
-                start_epoch=checkpoint['epoch']+1,
-                batch_size=batch_size,
-                q_acc=q_acc,
-                q_loss=q_loss,
-                q_epoch=q_epoch,
-                q_break_signal = q_break_signal,
-                q_stop_signal=q_stop_signal)
-    except:
-        training(model=model,
-             optimizer=opt,
-             cuda=False,
-             n_epochs=n_epochs,
-             start_epoch=0,
-             batch_size=batch_size,
-             q_acc=q_acc,
-             q_loss=q_loss,
-             q_epoch=q_epoch,
-             q_break_signal = q_break_signal,
-             q_stop_signal=q_stop_signal)"""
-    # return jsonify({"success": True})
-
-
-def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
-    accs, losses, epochs = [], [], []
-
-    manual_seed(seed)
-    np.random.seed(seed)
-
-    print("Starting training with:")
-    print(f"Seed: {seed}")
-    print(f"Learning rate: {lr}")
-    print(f"Number of epochs: {n_epochs}")
-    print(f"Batch size: {batch_size}")
-
     prepare_training(file_name=model_name[:(len(model_name)-3)],
              n_epochs=n_epochs,
+             start_epoch = 0,
              batch_size=batch_size,
              q_acc=q_acc,
              q_loss=q_loss,
@@ -571,11 +483,89 @@ def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
              learning_rate=lr,
              seed=seed, 
              loss_fn=loss_fn)
-    return gr.update() #jsonify({"success": True})
+    # return jsonify({"success": True})
+
+# @app.route("/stop_training", methods=["POST"])
+def stop_training():
+    global break_signal
+    if not break_signal:
+        q_stop_signal.put(True)
+        # set block to true to wait for item if the queue is empty
+        break_signal = q_break_signal.get(block=True)
+    if break_signal:
+        print("Training breaks!")
+        q_text.put("Training breaks!")
+    
+
+def resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
+    global break_signal, epoch, q_acc, q_loss, q_epoch, q_stop_signal
+    manual_seed(seed)
+    np.random.seed(seed)
+    break_signal = False
+    print(f"Resume from epoch {epoch+1}")
+    q_text.put(f"Resume from epoch {epoch+1}")
+    if epoch != -1:
+        print(f"Epoch {epoch} loaded, ready to resume training!")
+        q_text.put(f"Epoch {epoch} loaded, ready to resume training!")
+        prepare_training(file_name=model_name[:(len(model_name)-3)],
+             n_epochs=n_epochs,
+             start_epoch=epoch+1,
+             batch_size=batch_size,
+             q_acc=q_acc,
+             q_loss=q_loss,
+             q_epoch=q_epoch,
+             q_break_signal = q_break_signal,
+             q_stop_signal=q_stop_signal,
+             learning_rate=lr,
+             seed=seed, 
+             loss_fn=loss_fn)
+    else:
+        prepare_training(file_name=model_name[:(len(model_name)-3)],
+             n_epochs=n_epochs,
+             start_epoch=0,
+             batch_size=batch_size,
+             q_acc=q_acc,
+             q_loss=q_loss,
+             q_epoch=q_epoch,
+             q_break_signal = q_break_signal,
+             q_stop_signal=q_stop_signal,
+             learning_rate=lr,
+             seed=seed, 
+             loss_fn=loss_fn)
+    return gr.update()
+
+
+# def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
+#     global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
+#     accs, losses, epochs = [], [], []
+
+#     manual_seed(seed)
+#     np.random.seed(seed)
+
+#     print("Starting training with:")
+#     print(f"Seed: {seed}")
+#     print(f"Learning rate: {lr}")
+#     print(f"Number of epochs: {n_epochs}")
+#     print(f"Batch size: {batch_size}")
+
+#     prepare_training(file_name=model_name[:(len(model_name)-3)],
+#              n_epochs=n_epochs,
+#              batch_size=batch_size,
+#              q_acc=q_acc,
+#              q_loss=q_loss,
+#              q_epoch=q_epoch,
+#              q_break_signal = q_break_signal,
+#              q_stop_signal=q_stop_signal,
+#              learning_rate=lr,
+#              seed=seed, 
+#              loss_fn=loss_fn)
+#     return gr.update() #jsonify({"success": True})
 
 #app.route("/revert_to_last_epoch", methods=["GET", "POST"])
 def revert_to_last_epoch():
-    global break_signal, epoch, loss, lr, q_epoch, loss_img_url
+    global break_signal, epoch, loss, lr, q_epoch
+    print("We're at revert")
+    q_text.put("Reverting to last epoch...")
     # check if the training is already stopped, if not, stop first
     if not break_signal:
         q_stop_signal.put(True)
@@ -600,64 +590,8 @@ def revert_to_last_epoch():
         print("You couldn't revert from epoch 0! You can resume(restart) from epoch 0 now.")
         q_text.put("You couldn't revert from epoch 0! You can resume(restart) from epoch 0 now.")
     #loss_img_url = loss_plot_url()
-    #return jsonify({"epoch_losses": epoch_losses})
+    return gr.update()
 
-# def remember(loss):
-#     global stop_signal, epoch_losses, loss_img_url, data_url, epoch
-#     # to forget losses after the epoch
-#     for i in range(epoch+1, n_epochs):
-#         while epoch_losses.get(i) is not None:
-#             epoch_losses[i] = None
-#     print(f"current epoch_losses:{epoch_losses}")
-#     loss_img_url = loss_plot_url()
-#     while stop_signal == True:
-#         q_loss.put(loss)
-#         q_epoch.put(epoch)
-#     return jsonify({"success": True})
-    
-
-#@app.route("/loss_plot", methods=["GET"])
-# loss_plot is for the display at endpoint /loss_plot while loss_plot_2 is for the display at index.html
-def loss_plot():
-    global data_url
-    data_full_url = f"<img src='{data_url}'/>"
-    print(epoch_losses)
-    return data_full_url
-
-def loss_plot_url():
-    global epoch_losses, loss, epoch, data_url
-    fig = Figure()
-    ax = fig.subplots()  # Create a new figure with a single subplot
-    y = list(epoch_losses.values())
-    ax.plot(range(epoch+1),y[:(epoch+1)])
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Average Loss')
-    ax.set_title('Training Loss per Epoch')
-    # Save it to a temporary buffer.
-    buf = BytesIO()
-    fig.savefig(buf, format="png")
-    # Embed the result in the html output.
-    data_image = base64.b64encode(buf.getbuffer()).decode("ascii")
-    data_url = f"data:image/png;base64,{data_image}"
-    return data_url
-
-# # @app.route("/acc_plot", methods=["GET"])
-# def acc_plot():
-#     # Create a Matplotlib plot
-#     x = np.linspace(0, 2 * np.pi, 100)
-#     y = np.sin(x)
-#     # Plot the data and save the figure
-#     fig, ax = plt.subplots()
-#     ax.plot(x, y)
-#     buf = BytesIO()
-#     fig.savefig(buf, format="png")
-#     # Embed the result in the html output.
-#     data_image = base64.b64encode(buf.getbuffer()).decode("ascii")
-#     data_url = f"<img src='data:image/png;base64,{data_image}'/>"
-#     return data_url
-    # loss_img_url = loss_plot_url()
-    # return jsonify({"epoch_losses": epoch_losses})
-    
 
 # @app.route("/update_seed", methods=["POST"])
 def update_seed():
@@ -928,8 +862,8 @@ def predict(path, img):
 def aaa():
     return np.zeros((28,28))
 
-def bbb():
-    return gr.update()
+# def bbb():
+#     return gr.update()
 
 visibleee = True
 embed_html = '<iframe width="560" height="315" src="https://www.youtube.com/embed/bfmFfD2RIcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
@@ -997,35 +931,8 @@ with gr.Blocks() as demo:
                         button_complex_create_model = gr.Button(value="Create Model")
                         network_img = gr.Image(type='filepath', value='network.png')
                         button_complex_create_model.click(complex_model_creator, inputs=[in_model_name], outputs=network_img)
-                        
-                        #button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
-                        #button_display = gr.Button(value="Display Model")
-                        #output = gr.Plot()
-                        #button_display.click(simple_model_drawer, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=output)          
-                        #network_plot = gr.Plot()
-                        #gr.Interface(
-                        #    fn=simple_model_drawer,
-                        #    inputs= [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin],
-                        #    outputs=gr.Plot())
-            """with gr.Column():
-                with gr.Tab("Select Model"):
-                    gr.Markdown("Select Model & Dataset")
-                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single")
-                    gr.Dropdown(label="Select Dataset")
-                with gr.Tab("Create Model"):
-                    gr.Markdown("Create Model")
-                    model_name = gr.Textbox(label="Model Name")
-                    #gr.Dropdown(label="Model Type")
-                    #gr.Slider(label="Number of Layers")
-                    #gr.Slider(label="Kernel Size")
-                    #gr.Button(value="Create Model")
-                    in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1) 
-                    in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1)               
-                    in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1)
-                    in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1)
-                    button_create_model = gr.Button(value="Create Model")
-                    button_create_model.click(simple_model_creator, inputs=[model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
-                    gr.Button(value="Display Model")"""
+
+
             with gr.Column():
                 with gr.Tab("Adjustable Parameters"):
                     gr.Markdown("<h1>Adjustable Parameters</h1>")
@@ -1063,25 +970,26 @@ with gr.Blocks() as demo:
                             gr.Markdown("The <b>loss function</b> determines how the model learns from decisions. It has no direct influence on accuracy or training duration. The most suitable function must be determined by testing. It is not actually changed during the training process.")
                     with gr.Row():
                         with gr.Column(min_width=100):
-                            button_start = gr.Button(value="Start/Continue")
+                            button_start = gr.Button(value="Start")
                             #button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=None)
                             #button_start = gr.Button(value="Start")
                             #button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Stop")
                             #button_stop.click(stop_training, inputs=None, outputs=None)
-                        #with gr.Column(min_width=100):
-                        #    button_stop = gr.Button(value="Resume")
-                        #    button_stop.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
+                        with gr.Column(min_width=100):
+                           button_resume = gr.Button(value="Resume")
+                           #button_resume.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                     with gr.Row():
                         button_revert = gr.Button(value="Revert to last epoch")
                         button_revert.click(revert_to_last_epoch, inputs=None, outputs=None)
                     with gr.Row():
                         text_component = gr.Markdown()
             
-            button_start.click(bbb, inputs=None, outputs=spinner)
-            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
+            # button_start.click(bbb, inputs=None, outputs=spinner)
+            button_start.click(start_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
             button_stop.click(stop_training, inputs=None, outputs=None)
+            button_resume.click(resume_training,inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
                     
             with gr.Column():
                 with gr.Tab("Training"):
