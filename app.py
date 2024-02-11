@@ -1037,12 +1037,12 @@ with gr.Blocks() as demo:
                         with gr.Column(min_width=50):
                             pass
                     with gr.Row():
-                        with gr.Tab("lr"):
+                        with gr.Tab("learning rate"):
                             in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
                         with gr.Tab("info"):
-                            gr.Markdown("determines the step size for learning steps.\n A large value ensures fast learning, which reduces the training time, but also the accuracy. Smaller steps lead to more accurate results, but also increase the training duration. As a rule higher values are used at the beginning, then the training process is interrupted in between and smaller values are the selected.")
+                            gr.Markdown("<b>Learning rate</b> determines the step size for learning steps.\n A large value ensures fast learning, which reduces the training time, but also the accuracy. Smaller steps lead to more accurate results, but also increase the training duration. As a rule higher values are used at the beginning, then the training process is interrupted in between and smaller values are the selected.")
                     with gr.Row():
-                        with gr.Tab("bs"):
+                        with gr.Tab("batch size"):
                             in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
                         with gr.Tab("info"):
                             gr.Markdown("The <b>batch size</b> is the number of samples (here images) used per training step. A high value leads to better accuracy, but prolongs the training process.")
@@ -1050,14 +1050,14 @@ with gr.Blocks() as demo:
                         with gr.Tab("seed"):
                             in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
                         with gr.Tab("info"):
-                            gr.Markdown("Has no direct influence on accuracy or training duration. The <b>seed</b> roughly allows you to achieve different results when training with the same parameters.")
+                            gr.Markdown("<b>Seed</b> has no direct influence on accuracy or training duration. The <b>seed</b> roughly allows you to achieve different results when training with the same parameters.")
                     with gr.Row():
-                        with gr.Tab("ep"):
+                        with gr.Tab("#epoch"):
                             in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=50, step=1)
                         with gr.Tab("info"):
                             gr.Markdown("The number of <b>epochs/training steps</b> that the training process is carried out in. A high value leads to better accuracy, but prolongs the training process.")
                     with gr.Row():
-                        with gr.Tab("lf"):   
+                        with gr.Tab("loss function"):   
                             in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
                         with gr.Tab("info"):
                             gr.Markdown("The <b>loss function</b> determines how the model learns from decisions. It has no direct influence on accuracy or training duration. The most suitable function must be determined by testing. It is not actually changed during the training process.")
