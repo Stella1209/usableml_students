@@ -1,13 +1,10 @@
 import os
-#os.system("pip uninstall -y gradio")
-#os.system("pip install gradio==3.50.2")
 import queue
 import webbrowser
 import base64
 import time
 from PIL import Image 
 import io
-import os
 
 from io import BytesIO
 from matplotlib.figure import Figure
@@ -868,6 +865,13 @@ def aaa():
 visibleee = True
 embed_html = '<iframe width="560" height="315" src="https://www.youtube.com/embed/bfmFfD2RIcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
 
+def clear_saved_files():
+    app_dir = os.path.dirname(os.path.abspath(__file__)) 
+    for root, dirs, files in os.walk(app_dir):
+        for file in files:
+            if file.endswith(".pt"):
+                os.remove(os.path.join(root, file))
+
 with gr.Blocks() as demo:
     
     with gr.Tab("Train/Test"):
@@ -876,6 +880,8 @@ with gr.Blocks() as demo:
                 with gr.Tab("Select Model"):
                     gr.Markdown("Select Model")
                     button_refresh = gr.Button(value="Refresh File Explorers")
+                    button_clear = gr.Button(value="Clear all saved files")
+                    button_clear.click(clear_saved_files)
                     select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single", interactive=True)
                     button_refresh.click(None, js="window.location.reload()")
                     """gr.Dropdown(label="Select Dataset")
