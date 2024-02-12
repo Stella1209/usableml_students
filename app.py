@@ -196,6 +196,7 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         
             train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
+            print("One batch done!")
             if q_stop_signal.empty():
                 continue
             if q_stop_signal.get():
@@ -1072,7 +1073,7 @@ with gr.Blocks() as demo:
                             button_stop = gr.Button(value="Stop")
                             #button_stop.click(stop_training, inputs=None, outputs=None)
                         with gr.Column(min_width=100):
-                           button_resume = gr.Button(value="Resume")
+                           button_resume = gr.Button(value="Continue")
                            #button_resume.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
                     with gr.Row():
                         button_revert = gr.Button(value="Revert to last epoch")
