@@ -932,31 +932,121 @@ def bbb():
     return gr.update()
 
 visibleee = True
-embed_html = '<iframe width="560" height="315" src="https://www.youtube.com/embed/bfmFfD2RIcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
-
+embed_html = '<iframe width="660" height="365" src="https://www.youtube.com/embed/bfmFfD2RIcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
+#width="560" height="315"
 with gr.Blocks() as demo:
     
+    with gr.Tab("Info"):
+        gr.Markdown("<h1 align='center'>Introduction to Machine Learning</h1>")
+        
+        with gr.Row():
+            with gr.Column(scale=1):
+                pass
+            with gr.Column(scale=7):
+                gr.HTML(embed_html)           
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+
+                In order to explain the term machine learning, we must first deal with the term artificial intelligence. 
+                Artificial intelligence is a scientific discipline that focuses on the research and algorithmization of 
+                preferably human intelligence in the form of automatically usable perception and "mind power". 
+                Artificial intelligence (AI for short) is therefore a machine that can replicate the cognitive abilities of a human being, 
+                i.e. automates human intelligence. Philosophers and psychologists have been discussing what exactly 
+                intelligence is for thousands of years, but the ability to learn is a generally recognized component.\n
+
+                This brings us to the next term, "machine learning". Just as a person only becomes intelligent through lifelong learning, 
+                a machine only becomes intelligent through learning processes. The advantage of using such processes is that machines learn 
+                independently how to solve certain problems. This becomes particularly advantageous if the problem cannot be described in concrete 
+                terms or demonstrates such variability that a clearly definable solution proves challenging to pinpoint.\n\n
+
+                Trainable programs are often implemented in the form of neural networks. Neural networks are a set of algorithms, 
+                modeled loosely after the human brain, that are designed to recognize patterns.
+                Neurons within neural networks can be envisioned as interconnected information nodes. They receive input data and process it, 
+                aiming to generate an output that closely matches the desired result or ideally achieves it precisely.
+                To simplify, think of neurons as tiny decision-makers. When the network achieves a good outcome, these neurons adjust 
+                themselves to provide more similar decisions in the future. However, if the outcome is not satisfactory, 
+                the neurons recalibrate to offer different decisions /output next time. 
+                It's like refining the network's judgment based on whether it's geting things right or wrong.</span>
+                """)
+
+                gr.Image("NN.png",width=450, show_label=False) #"https://www.researchgate.net/profile/Anna-Meiliana/publication/334845867/figure/fig1/AS:787149469270017@1564682466919/A-deep-neural-network-simplified40-Adapted-with-permission-from-Springer-Nature.png"
+
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+                This tool focuses on image recognition with neural networks. The data, the tool works with, is the MNIST-dataset, 
+                which is a collection of handwritten digits from 0 to 9 widely used for training various machine learning models. 
+                Each image is labeled with the number it shows. The trained models should be able to classifiy the images and recognize the displayed number.
+                Neural networks, that are used specifically to learn grid-like data such as images, are called Convolutional Neural Networks (CNN). 
+                Image pixels contain values that indicate the color each pixel should be. 
+                The MNIST images are grayscale, therefore each pixel has a value between 0 (black) and 255 (white).
+                </span>"""
+                )
+
+                gr.Image("pixel-values-matrix.png",width=450, show_label=False) #"source:https://www.researchgate.net/figure/Representation-of-value-three-in-the-MNIST-dataset-and-its-equivalent-matrix_fig1_361444345"
+
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+                These pixel values serve as input to the CNN. Simplified, they are processed by several convolutional layers followed by linear layers.
+                The convolutional layers detect features/patterns in data. The layers are structured to initially recognize simpler patterns like lines and curves, 
+                progressing to identify more complex patterns such as faces and objects as they advance. The deeper (more convLayers) the better the pattern 
+                recognition, but it also extends the training duration and processing load.
+                </span>"""
+                )
+                gr.Image("hierarchy.png",width=450, show_label=False) #https://www.ibm.com/content/dam/connectedassets-adobe-cms/worldwide-content/creative-assets/s-migr/ul/g/41/0f/hierarchy.png
+
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+                The linear layers aid in determining the correct class for the image, which corresponds to the digits 0 through 9.
+                In the end the predicted output result of the model is compared to the actual target labels. 
+                A loss function (such as cross-entropy loss) is used to quantify the difference between the predicted output and the true labels. 
+                Based on the loss it changes learnable parameters in the neurons accordingly and repeats the process.
+                </span>
+                """
+                )
+
+                #gr.Image("https://miro.medium.com/v2/resize:fit:1400/format:webp/1*XdCMCaHPt-pqtEibUfAnNw.png",width=450, show_label=False) #https://miro.medium.com/v2/resize:fit:1400/format:webp/1*XdCMCaHPt-pqtEibUfAnNw.png
+                gr.Markdown("""More detailed resources: 
+                            https://towardsdatascience.com/convolutional-neural-networks-explained-9cc5188c4939
+                            https://towardsdatascience.com/simple-introduction-to-convolutional-neural-networks-cdf8d3077bac
+                            """)
+                
+            with gr.Column(scale=1):
+                pass
+        """ with gr.Row():
+            with gr.Column(min_width=50):
+                pass
+            with gr.Column(min_width=50):
+                gr.HTML(embed_html)
+                #gr.Video("https://www.youtube.com/embed/bfmFfD2RIcg")
+            with gr.Column(min_width=50):
+                pass"""
+
     with gr.Tab("Train/Test"):
         with gr.Row():
             with gr.Column():
                 with gr.Tab("Select Model"):
-                    gr.Markdown("Select Model")
+                    gr.Markdown("<h1>Select Model</h1>")
+                    gr.Markdown("Select an already created or trained model to train or test it.")
+
                     button_refresh = gr.Button(value="Refresh File Explorers")
+
+                    gr.Markdown("Your models will be stored as files every epoch. Because you can revert to an earlier epoch and therefore e.g. train the second epoch multiple times, the filename format is <b>modelName_date-time_lastEpoch.pt</b> (date and time refer to the point in time button start was clicked). <br/> Untrained models do not have an epoch number at the end.")
+
                     select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single", interactive=True)
                     button_refresh.click(None, js="window.location.reload()")
-                    """gr.Dropdown(label="Select Dataset")
-                gr.Markdown("Select Model & Dataset")
-                    gr.Markdown("Select Model & Dataset")
-                    gr.Dropdown(label="Select Model")
-                    gr.Dropdown(label="Dataset")
-                    gr.FileExplorer("**/*.pt")"""
+                
                 with gr.Tab("Create Model"):                    
                     with gr.Tab("Beginner Model Creator"):
+                        gr.Markdown("Here you can create a new model. Once a model has been created, its structure can no longer be changed. A new model must be created for that purpose.")
                         in_model_name = gr.Textbox(label="Model Name", value="unnamed")
-                        in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1) 
-                        in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1)               
-                        in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1)
-                        in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1)
+                        in_convolutional_layers = gr.Slider(label="Convolutional Layers", value=2, minimum=0, maximum=5, step=1, info="extract features and patterns from input data. Many layers can lead to better accuracy but lengthen the training duration. ") 
+                        in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1, info="influence the capacity and learning ability of the neural network")               
+                        in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1, info="commonly used for learning complex relationships between features extracted by convolutional layers")
+                        in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1, info="influence the capacity and learning ability of the neural network")
                         button_create_model = gr.Button(value="Create Model")
                         button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
                         button_display = gr.Button(value="Display Model")
@@ -967,7 +1057,7 @@ with gr.Blocks() as demo:
                         #gr.Interface(make_img, gr.Image(type="pil", value=None), "image")
                         
                     with gr.Tab("Advanced Model Creator"):
-                        gr.Markdown("Only recommended to people with a good understanding of ML")
+                        gr.Markdown("Only recommended to people with a good understanding of CNNs.")
                         in_model_name = gr.Textbox(label="Model Name", value="unnamed")
                         with gr.Column():   
                             gr.Markdown("Add Convolutional Layer")                         
@@ -1037,30 +1127,30 @@ with gr.Blocks() as demo:
                         with gr.Column(min_width=50):
                             pass
                     with gr.Row():
-                        with gr.Tab("lr"):
+                        with gr.Tab("slider"):
                             in_learning_rate = gr.Slider(label="Learning Rate", value=0.3, minimum=0, maximum=1, step=0.01)
                         with gr.Tab("info"):
-                            gr.Markdown("determines the step size for learning steps.\n A large value ensures fast learning, which reduces the training time, but also the accuracy. Smaller steps lead to more accurate results, but also increase the training duration. As a rule higher values are used at the beginning, then the training process is interrupted in between and smaller values are the selected.")
+                            gr.Markdown("The <b>learning rate</b> determines how large the steps are that a model takes during training. A higher learning rate can make the model converge faster but risks overshooting the optimal solution. A lower learning rate may lead to slower convergence but can offer better accuracy. <br> As a rule, higher values are used at the beginning, the training process is interrupted in between and smaller values are then selected.")
                     with gr.Row():
-                        with gr.Tab("bs"):
+                        with gr.Tab("slider"):
                             in_batch_size = gr.Slider(label="Batch Size", value=256, minimum=0, maximum=1024, step=32)
                         with gr.Tab("info"):
-                            gr.Markdown("The <b>batch size</b> is the number of samples (here images) used per training step. A high value leads to better accuracy, but prolongs the training process.")
+                            gr.Markdown("<b>Batch size</b> refers to the number of training examples processed in one epoch. It affects the stability of the training process, memory usage, and generalization ability. A high value leads to better accuracy, but prolongs the training process.")
                     with gr.Row():
-                        with gr.Tab("seed"):
+                        with gr.Tab("slider"):
                             in_seed = gr.Slider(label="Seed", value=42, minimum=0, maximum=1000, step=1)
                         with gr.Tab("info"):
-                            gr.Markdown("Has no direct influence on accuracy or training duration. The <b>seed</b> roughly allows you to achieve different results when training with the same parameters.")
+                            gr.Markdown("The <b>seed</b> has no direct influence on accuracy or training duration. It roughly allows you to achieve different results when training with the same parameters.")
                     with gr.Row():
-                        with gr.Tab("ep"):
+                        with gr.Tab("slider"):
                             in_n_epochs = gr.Slider(label="Epochs/Training Steps", value=10, minimum=0, maximum=50, step=1)
                         with gr.Tab("info"):
-                            gr.Markdown("The number of <b>epochs/training steps</b> that the training process is carried out in. A high value leads to better accuracy, but prolongs the training process.")
+                            gr.Markdown("<b>Epochs</b> refer to the number of times a learning algorithm sees the entire dataset during the training process. It's a hyperparameter that controls the number of iterations the algorithm makes over the entire dataset. Though more epochs extend the training process, they allow the model to learn more from the dataset and potentially improve its performance.")
                     with gr.Row():
-                        with gr.Tab("lf"):   
+                        with gr.Tab("slider"):   
                             in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
                         with gr.Tab("info"):
-                            gr.Markdown("The <b>loss function</b> determines how the model learns from decisions. It has no direct influence on accuracy or training duration. The most suitable function must be determined by testing. It is not actually changed during the training process.")
+                            gr.Markdown("A <b>loss function</b> measures how well a model performs on a dataset by comparing its predictions to the actual target values. It quantifies the difference between predicted outputs and ground truth labels. The goal during training is to minimize this difference.")
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_start = gr.Button(value="Start/Continue")
@@ -1085,16 +1175,18 @@ with gr.Blocks() as demo:
                     
             with gr.Column():
                 with gr.Tab("Training"):
-                    gr.Markdown("Training")
+                    gr.Markdown("<h1>Training</h1>")
                     training_plot = gr.LinePlot()
                     training_info = gr.Markdown()
                     #out_accuracy = gr.Textbox(label="Accuracy")
                     #out_loss = gr.Textbox(label="Loss")
+                    gr.Markdown("Choose which models you want to display in the plot:")
                     select_plot = gr.FileExplorer("**/*.yml", file_count="multiple")
                     select_plot.change(load_graph, inputs=[select_plot], outputs=[])
                     #select_plot = gr.Dropdown([], value=[], multiselect=True, label="Models to plot", info="Select model training graphs to display in the plot")
                 with gr.Tab("Testing"):
-                    gr.Markdown("Testing")
+                    gr.Markdown("<h1>Testing</h1>")
+                    gr.Markdown("Here you can test if the trained model recognizes the number you draw.")
                     #playground_in = gr.Sketchpad(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True) 
                     #playground_in = gr.Sketchpad(image_mode='L', invert_colors=True, source='canvas', type="numpy") #shape = (28, 28), crop_size="1:1", 
                     #playground_in = gr.Paint(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True)
@@ -1113,31 +1205,7 @@ with gr.Blocks() as demo:
                                  outputs = "label")
                                  """
     
-    with gr.Tab("Info"):
-        with gr.Row():
-            with gr.Column(min_width=50):
-                pass
-            with gr.Column(min_width=50):
-                gr.HTML(embed_html)
-                #gr.Video("https://www.youtube.com/embed/bfmFfD2RIcg")
-            with gr.Column(min_width=50):
-                pass
-        with gr.Row():
-            gr.Markdown(
-"""
-Introduction to Machine Learning\n\n
-In order to explain the term machine learning, we must first deal with the term artificial intelligence. Artificial intelligence is a scientific discipline that focuses on the research and algorithmization of preferably human intelligence in the form of automatically usable perception and "mind power".\n\n
-"Artificial intelligence is the study of computational methods that make it possible to perceive, reason and act."\n\n
-Artificial intelligence (AI for short) is therefore a machine that can replicate the cognitive abilities of a human being, i.e. automates human intelligence. Philosophers and psychologists have been discussing what exactly intelligence is for thousands of years, but the ability to learn is a generally recognized component.\n
-This brings us to the next term, "machine learning". Just as a person only becomes intelligent through lifelong learning, a machine only becomes intelligent through learning.\n\n
-"[Machine] learning is the construction of computer programs that automatically improve through experience"\n\n
-The advantage of using learning processes is that machines learn independently how best to solve certain problems. This is particularly advantageous if the problem cannot be described in concrete terms or can vary so much that there is no clearly definable solution.\n
-Trainable programs are often implemented in the form of neural networks. They are modeled on the human brain, which also consists of neurons. Neural networks can be thought of as networks of neurons, i.e. information points, into which an input for a problem can be entered, which is then processed by the neurons and which then outputs a result that is closer to the desired result than the input or ideally corresponds exactly to the desired result. If the result was good, the neurons are calibrated so that they deliver more similar results. If the result was poor, they are calibrated so that they produce different results.\n
-Training data is essential for such training. This includes various cases of the problem to be solved in a form that the computer can understand. There must also be a way of validating the results so that the neurons can be calibrated correctly.\n
-In the case of image-to-image processing, there is one image that is processed and one that corresponds to the desired result. The image generated by the neural network from the input is then compared with the reference image.\n
-The deviation between the result and the reference image is mathematically recorded in a value known as a "loss". The neural network calibrates its neurons depending on the amount of the loss, so that large changes are made if the loss is large, i.e. the generated result deviates greatly from the reference image, and small changes are made if the loss is small, i.e. the generated result is similar to the reference image. In this way, the neurons are calibrated in the long term so that the neural network achieves better and better results.\n
-"""
-)
+     
     # def progress(x, progress = gr.Progress()):
     #     for epoch in range(10):
     #         progress(0, desc = "test...")
