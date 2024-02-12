@@ -196,7 +196,6 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         
             train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
-            print("One batch done!")
             if q_stop_signal.empty():
                 continue
             if q_stop_signal.get():
