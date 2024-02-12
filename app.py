@@ -111,11 +111,7 @@ def prepare_training(file_name: str,
     np.random.seed(seed)
 
     path = f"{file_name}.pt"
-    if q_stop_signal is not None:
-        q_stop_signal.put(False)
     model = Adjustable_model()
-    #model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
-    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     checkpoint = load_checkpoint(model, path)
     model = Adjustable_model(linear_layers = checkpoint['lin_layers'], convolutional_layers = checkpoint['conv_layers'])
     opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
@@ -194,16 +190,19 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         path=f"{model_name}_{timestr}_{epoch}.pt"
         for batch in train_loader:
             data, target = batch
-            if q_stop_signal.get():
-                    q_break_signal.put(True)
-                    stop=True
-                    break
+            
             if(str(loss_fn) == "MSELoss()" or str(loss_fn) == "L1Loss()"):
                 target = F.one_hot(target, 10).float()
         
             train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
-            
+            print("One batch done!")
+            if q_stop_signal.empty():
+                continue
+            if q_stop_signal.get():
+                    q_break_signal.put(True)
+                    stop=True
+                    break
         test_loss, test_acc = accuracy(model, test_loader, loss_fn, cuda)
         if q_acc is not None:
             q_acc.put(test_acc)
@@ -453,7 +452,7 @@ def complex_model_creator(model_name):
 
     
 def start_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model
     accs, losses, epochs = [], [], []
     
     if model_name == None:
