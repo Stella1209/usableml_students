@@ -4,3 +4,4 @@ MNIST/
 ml_utils/MNIST/
 __pycache__/
 *.pt
+*.yml
