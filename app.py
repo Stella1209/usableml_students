@@ -940,9 +940,9 @@ with gr.Blocks() as demo:
         with gr.Row():
             with gr.Column():
                 with gr.Tab("Select Model"):
-                    gr.Markdown("Select Model")
+                    gr.Markdown("<h1>Select Model</h1>")
                     button_refresh = gr.Button(value="Refresh File Explorers")
-                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single", interactive=True)
+                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single", interactive=True, show_label=False)
                     button_refresh.click(None, js="window.location.reload()")
                     """gr.Dropdown(label="Select Dataset")
                 gr.Markdown("Select Model & Dataset")
@@ -1061,6 +1061,10 @@ with gr.Blocks() as demo:
                             in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
                         with gr.Tab("info"):
                             gr.Markdown("The <b>loss function</b> determines how the model learns from decisions. It has no direct influence on accuracy or training duration. The most suitable function must be determined by testing. It is not actually changed during the training process.")
+                    
+            with gr.Column():
+                with gr.Tab("Training"):
+                    gr.Markdown("<h1>Training</h1>")
                     with gr.Row():
                         with gr.Column(min_width=100):
                             button_start = gr.Button(value="Start/Continue")
@@ -1079,22 +1083,19 @@ with gr.Blocks() as demo:
                     with gr.Row():
                         text_component = gr.Markdown()
             
-            button_start.click(bbb, inputs=None, outputs=spinner)
-            button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
-            button_stop.click(stop_training, inputs=None, outputs=None)
-                    
-            with gr.Column():
-                with gr.Tab("Training"):
-                    gr.Markdown("Training")
-                    training_plot = gr.LinePlot()
+                    button_start.click(bbb, inputs=None, outputs=spinner)
+                    button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
+                    button_stop.click(stop_training, inputs=None, outputs=None)
+
+                    training_plot = gr.LinePlot(show_label=False)
                     training_info = gr.Markdown()
                     #out_accuracy = gr.Textbox(label="Accuracy")
                     #out_loss = gr.Textbox(label="Loss")
-                    select_plot = gr.FileExplorer("**/*.yml", file_count="multiple")
+                    select_plot = gr.FileExplorer("**/*.yml", file_count="multiple", show_label=False)
                     select_plot.change(load_graph, inputs=[select_plot], outputs=[])
                     #select_plot = gr.Dropdown([], value=[], multiselect=True, label="Models to plot", info="Select model training graphs to display in the plot")
                 with gr.Tab("Testing"):
-                    gr.Markdown("Testing")
+                    gr.Markdown("<h1>Testing</h1>")
                     #playground_in = gr.Sketchpad(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True) 
                     #playground_in = gr.Sketchpad(image_mode='L', invert_colors=True, source='canvas', type="numpy") #shape = (28, 28), crop_size="1:1", 
                     #playground_in = gr.Paint(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True)
