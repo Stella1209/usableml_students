@@ -188,6 +188,7 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         print(f"Epoch {epoch} starts...")
         q_text.put(f"Epoch {epoch} starts...")
         path=f"{model_name}_{timestr}_{epoch}.pt"
+        batch_counter = 0
         for batch in train_loader:
             data, target = batch
             
@@ -196,7 +197,9 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         
             train_step(model=model, optimizer=optimizer, loss_fn=loss_fn, cuda=cuda, data=data,
                        target=target)
-            print("One batch done!")
+            batch_counter = batch_counter+1
+            if batch_counter %10 == 0:                
+                print(f"{batch_counter} batches done!")
             if q_stop_signal.empty():
                 continue
             if q_stop_signal.get():
@@ -288,7 +291,7 @@ def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv
                             {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 1, 'padding' : 0}]
     if conv_layer_num > len(conv_layers_proto):
         conv_layers_proto = conv_layers_proto + [{'size' : conv_layer_size} for i in range(conv_layer_num - len(conv_layers_proto))]
-    lin_layers = [lin_layer_size for i in range(lin_layer_num)]
+    lin_layers = [{"linear_cells":lin_layer_size} for i in range(lin_layer_num)]
     conv_layers = [conv_layers_proto[i % 2] for i in range(conv_layer_num)]
     
     current_model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
@@ -312,7 +315,7 @@ def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv
     file.write("Name", model_name)
     file.release()
 
-    return
+    return make_img(conv_layer_num = conv_layer_num, lin_layer_num = lin_layer_num, conv_layer_size = conv_layer_size, lin_layer_size = lin_layer_size)
 
 def simple_model_drawer(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
     inp = [1]
@@ -425,16 +428,16 @@ def complex_model_creator(model_name):
     conv_layers = boxes_of_layers.get_conv_layers()
     lin_layer_dicts = boxes_of_layers.get_lin_layers()
     
-    lin_layers = [i["linear_cells"] for i in lin_layer_dicts]
+    #lin_layers = [i["linear_cells"] for i in lin_layer_dicts]
     
-    current_model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
+    current_model = Adjustable_model(linear_layers = lin_layer_dicts, convolutional_layers = conv_layers)
     checkpoint = {
         'epoch': 0,
         'model_state_dict': current_model.state_dict(),
         'optimizer_state_dict': current_model.state_dict(),
         'loss': 1,
         'acc': 0,
-        'lin_layers': lin_layers,
+        'lin_layers': lin_layer_dicts,
         'conv_layers': conv_layers
         # Add any other information you want to save
     }
@@ -986,12 +989,12 @@ with gr.Blocks() as demo:
                         in_cells_per_conv = gr.Slider(label="Cells per convolutional layer", value=32, minimum=1, maximum=128, step=1, info="influence the capacity and learning ability of the neural network")               
                         in_linear_layers = gr.Slider(label="Linear Layers", value=1, minimum=0, maximum=5, step=1, info="commonly used for learning complex relationships between features extracted by convolutional layers")
                         in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1, info="influence the capacity and learning ability of the neural network")
-                        button_create_model = gr.Button(value="Create Model")
-                        button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=None)
                         button_display = gr.Button(value="Display Model")
-                        #network_plot = gr.Plot()
-                        
+                        button_create_model = gr.Button(value="Create Model")                        
                         network_img = gr.Image(type='filepath', value='network.png')#type="pil")
+                        button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)
+                        #network_plot = gr.Plot()                       
+                        
                         button_display.click(make_img, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)          
                         #gr.Interface(make_img, gr.Image(type="pil", value=None), "image")
                         
