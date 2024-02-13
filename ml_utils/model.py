@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+from itertools import chain
 
 
 class Adjustable_model(nn.Module):
@@ -40,8 +41,16 @@ class Adjustable_model(nn.Module):
                 #output_size = (output_size[0] - (params['kernel_size']-1), output_size[1] - (params['kernel_size']-1))
                 output_size = ( int((output_size[0] - (params['kernel_size']) + 2*params['padding'])/params['stride'] +1) , int((output_size[1] - (params['kernel_size']) + 2*params['padding'])/params['stride'] +1))
 
-                
+                if params["pooling"] != "Off":
+                    pool_kernel = int(params["pooling"])
+                    self.convolutional_layers.append(nn.MaxPool2d(kernel_size=pool_kernel, stride=1))
+                    output_size = ( int(output_size[0] - pool_kernel + 1) , int(output_size[1] - pool_kernel +1))
+                    
+                    
             input_size = input_size*output_size[0]*output_size[1]
+            
+            _conv = self.conv_layers        
+            self.conv_layers = list(chain.from_iterable((i, {'output_function':'Pooling_layer'}) if i['pooling'] != 'Off' else [i] for i in _conv))
         
         
         for layer in self.lin_layers:
@@ -70,12 +79,14 @@ class Adjustable_model(nn.Module):
                     inputs = F.relu(conv_layer(inputs))
                     #if self.forward_counter % 100 == 0:
                     #    print("Convolutional - ReLu")
+                elif self.conv_layers[index]["output_function"] == "Pooling_layer":
+                    inputs = conv_layer(inputs)
                 
-                if self.conv_layers[index]["pooling"] != "Off":
-                    pool_kernel = int(self.conv_layers[index]["pooling"])
-                    nn.MaxPool2d(kernel_size=pool_kernel, stride=1)
-                    #if self.forward_counter % 100 == 0:
-                    #    print(f"Max pooling - Kernel size: {pool_kernel}")
+                #if self.conv_layers[index]["pooling"] != "Off":
+                #    pool_kernel = int(self.conv_layers[index]["pooling"])
+                #    nn.MaxPool2d(kernel_size=pool_kernel, stride=1)
+                #if self.forward_counter % 100 == 0:
+                #    print(f"Max pooling - Kernel size: {pool_kernel}")
                     
                     
         
