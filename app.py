@@ -542,9 +542,28 @@ def resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
     return gr.update()
 """
 
+def get_lates_model_file():
+    app_dir = os.path.dirname(os.path.abspath(__file__)) 
+    pt_files = []
+    for root, dirs, files in os.walk(app_dir):
+        for file in files:
+            if file.endswith(".pt"):
+                pt_files.append(os.path.join(root, file))
+    if len(pt_files) > 0:
+        last_model = max(pt_files, key=os.path.getctime)
+        print(last_model)
+        return last_model
+    else:
+        return None
+
+
 def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
     if model_name == None:
-        q_text.put("Select a model first please!")
+        q_text.put("No model selected. Start/Continue Training on the last created/trained model file...")
+        model_name = get_lates_model_file()
+        select_model.value = model_name
+        if model_name == None:
+            q_text.put("Found no model files. Go to the section 'Train/Test' > 'Create Model' and create a model to proceed.")
 
     global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
     accs, losses, epochs = [], [], []
@@ -671,7 +690,15 @@ def load_graph(file_names):
         epochs_rp = np.append(epochs_rp, np.concatenate([plots[0], plots[0]]))
         values_rp = np.append(values_rp, np.concatenate([plots[1], plots[2]]))
 
+
 def predict(path, img):
+    if path == None:
+        q_text.put("No model selected. Start/Continue Training on the last created/trained model file...")
+        path = get_lates_model_file()
+        select_model.value = path
+        if path == None:
+            q_text.put("Found no model files. Go to the section 'Train/Test' > 'Create Model' and create a model to proceed.")
+
     img = img['composite']
 
     new_img = []
@@ -711,95 +738,6 @@ def clear_saved_files():
 
 with gr.Blocks() as demo:
     
-    with gr.Tab("Info"):
-        gr.Markdown("<h1 align='center'>Introduction to Machine Learning</h1>")
-        
-        with gr.Row():
-            with gr.Column(scale=1):
-                pass
-            with gr.Column(scale=7):
-                gr.HTML(embed_html)           
-                gr.Markdown(
-                """
-                <span style="font-weight:300;font-size:20px;text-align:justify">
-
-                In order to explain the term machine learning, we must first deal with the term artificial intelligence. 
-                Artificial intelligence is a scientific discipline that focuses on the research and algorithmization of 
-                preferably human intelligence in the form of automatically usable perception and "mind power". 
-                Artificial intelligence (AI for short) is therefore a machine that can replicate the cognitive abilities of a human being, 
-                i.e. automates human intelligence. Philosophers and psychologists have been discussing what exactly 
-                intelligence is for thousands of years, but the ability to learn is a generally recognized component.\n
-
-                This brings us to the next term, "machine learning". Just as a person only becomes intelligent through lifelong learning, 
-                a machine only becomes intelligent through learning processes. The advantage of using such processes is that machines learn 
-                independently how to solve certain problems. This becomes particularly advantageous if the problem cannot be described in concrete 
-                terms or demonstrates such variability that a clearly definable solution proves challenging to pinpoint.\n\n
-
-                Trainable programs are often implemented in the form of neural networks. Neural networks are a set of algorithms, 
-                modeled loosely after the human brain, that are designed to recognize patterns.
-                Neurons within neural networks can be envisioned as interconnected information nodes. They receive input data and process it, 
-                aiming to generate an output that closely matches the desired result or ideally achieves it precisely.
-                To simplify, think of neurons as tiny decision-makers. When the network achieves a good outcome, these neurons adjust 
-                themselves to provide more similar decisions in the future. However, if the outcome is not satisfactory, 
-                the neurons recalibrate to offer different decisions /output next time. 
-                It's like refining the network's judgment based on whether it's geting things right or wrong.</span>
-                """)
-
-                gr.Image("NN.png",width=450, show_label=False) #"https://www.researchgate.net/profile/Anna-Meiliana/publication/334845867/figure/fig1/AS:787149469270017@1564682466919/A-deep-neural-network-simplified40-Adapted-with-permission-from-Springer-Nature.png"
-
-                gr.Markdown(
-                """
-                <span style="font-weight:300;font-size:20px;text-align:justify">
-                This tool focuses on image recognition with neural networks. The data, the tool works with, is the MNIST-dataset, 
-                which is a collection of handwritten digits from 0 to 9 widely used for training various machine learning models. 
-                Each image is labeled with the number it shows. The trained models should be able to classifiy the images and recognize the displayed number.
-                Neural networks, that are used specifically to learn grid-like data such as images, are called Convolutional Neural Networks (CNN). 
-                Image pixels contain values that indicate the color each pixel should be. 
-                The MNIST images are grayscale, therefore each pixel has a value between 0 (black) and 255 (white).
-                </span>"""
-                )
-
-                gr.Image("pixel-values-matrix.png",width=450, show_label=False) #"source:https://www.researchgate.net/figure/Representation-of-value-three-in-the-MNIST-dataset-and-its-equivalent-matrix_fig1_361444345"
-
-                gr.Markdown(
-                """
-                <span style="font-weight:300;font-size:20px;text-align:justify">
-                These pixel values serve as input to the CNN. Simplified, they are processed by several convolutional layers followed by linear layers.
-                The convolutional layers detect features/patterns in data. The layers are structured to initially recognize simpler patterns like lines and curves, 
-                progressing to identify more complex patterns such as faces and objects as they advance. The deeper (more convLayers) the better the pattern 
-                recognition, but it also extends the training duration and processing load.
-                </span>"""
-                )
-                gr.Image("hierarchy.png",width=450, show_label=False) #https://www.ibm.com/content/dam/connectedassets-adobe-cms/worldwide-content/creative-assets/s-migr/ul/g/41/0f/hierarchy.png
-
-                gr.Markdown(
-                """
-                <span style="font-weight:300;font-size:20px;text-align:justify">
-                The linear layers aid in determining the correct class for the image, which corresponds to the digits 0 through 9.
-                In the end the predicted output result of the model is compared to the actual target labels. 
-                A loss function (such as cross-entropy loss) is used to quantify the difference between the predicted output and the true labels. 
-                Based on the loss it changes learnable parameters in the neurons accordingly and repeats the process.
-                </span>
-                """
-                )
-
-                #gr.Image("https://miro.medium.com/v2/resize:fit:1400/format:webp/1*XdCMCaHPt-pqtEibUfAnNw.png",width=450, show_label=False) #https://miro.medium.com/v2/resize:fit:1400/format:webp/1*XdCMCaHPt-pqtEibUfAnNw.png
-                gr.Markdown("""More detailed resources: 
-                            https://towardsdatascience.com/convolutional-neural-networks-explained-9cc5188c4939
-                            https://towardsdatascience.com/simple-introduction-to-convolutional-neural-networks-cdf8d3077bac
-                            """)
-                
-            with gr.Column(scale=1):
-                pass
-        """ with gr.Row():
-            with gr.Column(min_width=50):
-                pass
-            with gr.Column(min_width=50):
-                gr.HTML(embed_html)
-                #gr.Video("https://www.youtube.com/embed/bfmFfD2RIcg")
-            with gr.Column(min_width=50):
-                pass"""
-
     with gr.Tab("Train/Test"):
         with gr.Row():
             with gr.Column():
@@ -912,9 +850,9 @@ with gr.Blocks() as demo:
                             button_stop = gr.Button(value="Stop")
 #                        with gr.Column(min_width=100):
 #                           button_resume = gr.Button(value="Continue")
-#                    with gr.Row():
-#                        button_revert = gr.Button(value="Revert to last epoch")
-#                        button_revert.click(revert_to_last_epoch, inputs=None, outputs=None)
+                    with gr.Row():
+                        button_revert = gr.Button(value="Revert to last epoch")
+                        button_revert.click(revert_to_last_epoch, inputs=None, outputs=None)
                     with gr.Row():
                         text_component = gr.Markdown()
             
@@ -937,6 +875,95 @@ with gr.Blocks() as demo:
                     playground_out = gr.Text(label="Result")
                     button_test.click(predict, inputs=[select_model, playground_in], outputs=[playground_out])
                     buttoton.click(aaa, inputs=None, outputs=[playground_in])
+
+    with gr.Tab("Info"):
+        gr.Markdown("<h1 align='center'>Introduction to Machine Learning</h1>")
+        
+        with gr.Row():
+            with gr.Column(scale=1):
+                pass
+            with gr.Column(scale=7):
+                gr.HTML(embed_html)           
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+
+                In order to explain the term machine learning, we must first deal with the term artificial intelligence. 
+                Artificial intelligence is a scientific discipline that focuses on the research and algorithmization of 
+                preferably human intelligence in the form of automatically usable perception and "mind power". 
+                Artificial intelligence (AI for short) is therefore a machine that can replicate the cognitive abilities of a human being, 
+                i.e. automates human intelligence. Philosophers and psychologists have been discussing what exactly 
+                intelligence is for thousands of years, but the ability to learn is a generally recognized component.\n
+
+                This brings us to the next term, "machine learning". Just as a person only becomes intelligent through lifelong learning, 
+                a machine only becomes intelligent through learning processes. The advantage of using such processes is that machines learn 
+                independently how to solve certain problems. This becomes particularly advantageous if the problem cannot be described in concrete 
+                terms or demonstrates such variability that a clearly definable solution proves challenging to pinpoint.\n\n
+
+                Trainable programs are often implemented in the form of neural networks. Neural networks are a set of algorithms, 
+                modeled loosely after the human brain, that are designed to recognize patterns.
+                Neurons within neural networks can be envisioned as interconnected information nodes. They receive input data and process it, 
+                aiming to generate an output that closely matches the desired result or ideally achieves it precisely.
+                To simplify, think of neurons as tiny decision-makers. When the network achieves a good outcome, these neurons adjust 
+                themselves to provide more similar decisions in the future. However, if the outcome is not satisfactory, 
+                the neurons recalibrate to offer different decisions /output next time. 
+                It's like refining the network's judgment based on whether it's geting things right or wrong.</span>
+                """)
+
+                gr.Image("NN.png",width=450, show_label=False) #"https://www.researchgate.net/profile/Anna-Meiliana/publication/334845867/figure/fig1/AS:787149469270017@1564682466919/A-deep-neural-network-simplified40-Adapted-with-permission-from-Springer-Nature.png"
+
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+                This tool focuses on image recognition with neural networks. The data, the tool works with, is the MNIST-dataset, 
+                which is a collection of handwritten digits from 0 to 9 widely used for training various machine learning models. 
+                Each image is labeled with the number it shows. The trained models should be able to classifiy the images and recognize the displayed number.
+                Neural networks, that are used specifically to learn grid-like data such as images, are called Convolutional Neural Networks (CNN). 
+                Image pixels contain values that indicate the color each pixel should be. 
+                The MNIST images are grayscale, therefore each pixel has a value between 0 (black) and 255 (white).
+                </span>"""
+                )
+
+                gr.Image("pixel-values-matrix.png",width=450, show_label=False) #"source:https://www.researchgate.net/figure/Representation-of-value-three-in-the-MNIST-dataset-and-its-equivalent-matrix_fig1_361444345"
+
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+                These pixel values serve as input to the CNN. Simplified, they are processed by several convolutional layers followed by linear layers.
+                The convolutional layers detect features/patterns in data. The layers are structured to initially recognize simpler patterns like lines and curves, 
+                progressing to identify more complex patterns such as faces and objects as they advance. The deeper (more convLayers) the better the pattern 
+                recognition, but it also extends the training duration and processing load.
+                </span>"""
+                )
+                gr.Image("hierarchy.png",width=450, show_label=False) #https://www.ibm.com/content/dam/connectedassets-adobe-cms/worldwide-content/creative-assets/s-migr/ul/g/41/0f/hierarchy.png
+
+                gr.Markdown(
+                """
+                <span style="font-weight:300;font-size:20px;text-align:justify">
+                The linear layers aid in determining the correct class for the image, which corresponds to the digits 0 through 9.
+                In the end the predicted output result of the model is compared to the actual target labels. 
+                A loss function (such as cross-entropy loss) is used to quantify the difference between the predicted output and the true labels. 
+                Based on the loss it changes learnable parameters in the neurons accordingly and repeats the process.
+                </span>
+                """
+                )
+
+                #gr.Image("https://miro.medium.com/v2/resize:fit:1400/format:webp/1*XdCMCaHPt-pqtEibUfAnNw.png",width=450, show_label=False) #https://miro.medium.com/v2/resize:fit:1400/format:webp/1*XdCMCaHPt-pqtEibUfAnNw.png
+                gr.Markdown("""More detailed resources: 
+                            https://towardsdatascience.com/convolutional-neural-networks-explained-9cc5188c4939
+                            https://towardsdatascience.com/simple-introduction-to-convolutional-neural-networks-cdf8d3077bac
+                            """)
+                
+            with gr.Column(scale=1):
+                pass
+        """ with gr.Row():
+            with gr.Column(min_width=50):
+                pass
+            with gr.Column(min_width=50):
+                gr.HTML(embed_html)
+                #gr.Video("https://www.youtube.com/embed/bfmFfD2RIcg")
+            with gr.Column(min_width=50):
+                pass"""
 
     dep1 = demo.load(get_statistics, None, training_info, every=0.5)
     dep2 = demo.load(make_plot, None, training_plot, every=0.5)
