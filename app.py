@@ -493,8 +493,8 @@ def start_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
 def stop_training():
     global break_signal, q_stop_signal
     q_stop_signal.put(True)
-    print("Training breaks!")
-    q_text.put("Training breaks!")
+    print("Stopping training and finishing the training of the last epoch...")
+    q_text.put("Stopping training and finishing the training of the last epoch...")
     
 """
 def resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
@@ -553,11 +553,13 @@ def get_lates_model_file():
 
 def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
     if model_name == None:
-        q_text.put("No model selected. Start/Continue Training on the last created/trained model file...")
         model_name = get_lates_model_file()
         select_model.value = model_name
         if model_name == None:
             q_text.put("Found no model files. Go to the section 'Train/Test' > 'Create Model' and create a model to proceed.")
+        else:
+            q_text.put(f"No model selected. Starting/Resuming Training on the last created/trained model '{os.path.basename(model_name)}'.")
+    q_text.put(f"Training the model '{os.path.basename(model_name)}'.")
 
     global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
     accs, losses, epochs = [], [], []
@@ -579,6 +581,8 @@ def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
              learning_rate=lr,
              seed=seed, 
              loss_fn=loss_fn)
+    print("Finished Training.")
+    q_text.put("Finished Training.")
     return gr.update() #jsonify({"success": True})
 
 def revert_to_last_epoch():
@@ -590,8 +594,8 @@ def revert_to_last_epoch():
         q_stop_signal.put(True)
         break_signal = q_break_signal.get(block=True)
         if break_signal:
-            print("Training breaks!")
-            q_text.put("Training breaks!")
+            print("Stopping training and finishing the training of the last epoch.")
+            q_text.put("Stopping training and finishing the training of the last epoch.")
     time.sleep(10)
     try:
         q_epoch.put(epoch-1) 
@@ -668,11 +672,12 @@ def load_graph(file_names):
 
 def predict(path, img):
     if path == None:
-        q_text.put("No model selected. Start/Continue Training on the last created/trained model file...")
         path = get_lates_model_file()
         select_model.value = path
         if path == None:
             q_text.put("Found no model files. Go to the section 'Train/Test' > 'Create Model' and create a model to proceed.")
+        else:
+            q_text.put(f"No model selected. Run prediction on the last created/trained model '{os.path.basename(path)}'.")
 
     img = img['composite']
 
@@ -816,7 +821,7 @@ with gr.Blocks() as demo:
                     gr.Markdown("<h1>Training</h1>")
                     with gr.Row():
                         with gr.Column(min_width=100):
-                            button_start = gr.Button(value="Start/Continue")
+                            button_start = gr.Button(value="Start/Resume")
                         with gr.Column(min_width=100):
                             button_stop = gr.Button(value="Stop")
 #                        with gr.Column(min_width=100):
