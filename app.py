@@ -493,9 +493,10 @@ def start_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
 
 # @app.route("/stop_training", methods=["POST"])
 def stop_training():
-    global break_signal
+    global break_signal, q_stop_signal
+    q_stop_signal.put(True)
     if not break_signal:
-        q_stop_signal.put(True)
+        # q_stop_signal.put(True)
         # set block to true to wait for item if the queue is empty
         break_signal = q_break_signal.get(block=True)
     if break_signal:

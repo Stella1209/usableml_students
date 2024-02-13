@@ -123,6 +123,15 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
     #counter = 20
     for epoch in range(start_epoch, n_epochs):
         #q_epoch.put(epoch)
+
+        if not q_stop_signal.empty():
+            if q_stop_signal.get():
+                with q_stop_signal.mutex:
+                    q_stop_signal.queue.clear()
+                q_break_signal.put(True)
+                #stop=True
+                break
+
         print(f"Epoch {epoch} starts...")
         path=f"{model_name}_{timestr}_{epoch}.pt"
         for batch in train_loader:
@@ -152,15 +161,18 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         file.write("Name", model_name)
         file.write("Parent", file_name)
         file.release()
-
+    """
         if q_stop_signal.empty():
             continue
         if q_stop_signal.get():
+            with q_stop_signal.mutex:
+                q_stop_signal.queue.clear()
             q_break_signal.put(True)
-            stop=True
+            #stop=True
             break
-        if stop:
-            print("successfully stopped")
+        #if stop:
+        #    print("successfully stopped")
+    """
     if cuda:
         empty_cache()
 
