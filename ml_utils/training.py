@@ -108,11 +108,8 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
     file = cv2.FileStorage(f"{file_name}.yml", cv2.FILE_STORAGE_READ)
     model_name = file.getNode("Name").string()
     plots = np.array(file.getNode("Plot").mat())
-    #print(plots.size)
     if plots.size == 1:
         plots = np.empty((3, 0), float)
-    #plots.append([[],[],[]])
-    #np.append(plots, [[],[],[]])
     if q_acc is not None:
         for acc in plots[2]:
             q_acc.put(acc)
@@ -145,27 +142,11 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
             q_epoch.put(epoch)
         #print(plots)
         plots = np.append(plots, np.array([[epoch, test_loss, test_acc]]).transpose(), axis=1)
-        #np.append(plots[0], [epoch])
-        #np.append(plots[1], [test_loss])
-        #np.append(plots[2], [test_acc])
-        #plots[-1][0].append((epoch))
-        #plots[-1][1].append((test_loss))
-        #plots[-1][2].append((test_acc))
-                #if q_stop_signal is not None and q_stop_signal.qsize() > 0:
-                #    print("queue checked")
-                #    stop_signal = q_stop_signal.get()
-                #    q_stop_signal.task_done()
         print(f"epoch{epoch} is done!")
         print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
         save_checkpoint(model, optimizer, epoch, test_loss, loss_fn, test_acc, lin_layers, conv_layers, path, False)
         print(f"The checkpoint for epoch: {epoch} is saved!")
-        # print(f"epoch={epoch}, test accuracy={test_acc}, loss={test_loss}")
-        #if stop_signal:
-        #    save_checkpoint(model, optimizer, epoch, test_loss, test_acc, path, False)
-        #    print(f"The checkpoint for epoch: {epoch} is saved!")
-        #    print("successfully stopped")
-        
-        #print(plots)
+
         file = cv2.FileStorage(f"{model_name}_{timestr}_{epoch}.yml", cv2.FILE_STORAGE_WRITE)
         file.write("Plot", np.array(plots))
         file.write("Name", model_name)
@@ -180,12 +161,6 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
             break
         if stop:
             print("successfully stopped")
-
-    #file = cv2.FileStorage(f"{model_name}_{timestr}.yml", cv2.FILE_STORAGE_WRITE)
-    #file.write("Plot", np.array(plots))
-    #file.write("Name", model_name)
-    #file.release()
-
     if cuda:
         empty_cache()
 
@@ -217,42 +192,3 @@ def load_checkpoint(model, path):
     checkpoint = torch.load(path)
     model.eval()
     return checkpoint
-
-
-
-"""def main(seed):
-    print("init...")
-    manual_seed(seed)
-    np.random.seed(seed)
-    model = Adjustable_model()
-    opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
-    print("train...")
-    training(
-        model=model,
-        optimizer=opt,
-        loss_fn=nn.CrossEntropyLoss(),
-        cuda=False,     # change to True to run on nvidia gpu
-        n_epochs=10,
-        batch_size=256,
-    )"""
-
-# def main(seed):
-#     print("init...")
-#     manual_seed(seed)
-#     np.random.seed(seed)
-#     model = ConvolutionalNeuralNetwork()
-#     opt = SGD(model.parameters(), lr=0.3, momentum=0.5)
-#     print("train...")
-#     training(
-#         model=model,
-#         optimizer=opt,
-#         cuda=False,     # change to True to run on nvidia gpu
-#         n_epochs=10,
-#         batch_size=256,
-#     )
-
-
-# if __name__ == "__main__":
-#     main(seed=0)
-#     # print(f"The final accuracy is: {final_test_acc}")
-

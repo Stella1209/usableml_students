@@ -47,6 +47,7 @@ import torch
 # try:
 from ml_utils.data import get_data_loaders
 from ml_utils.evaluate import accuracy
+from ml_utils.training import load_checkpoint, prepare_training
 # except:
 #     from data import get_data_loaders
 #     from evaluate import accuracy
@@ -95,6 +96,10 @@ epochs = []
 
 current_model = None
 
+# For advanced model creator:
+boxes_of_layers = layer_box_representation()
+
+"""
 def prepare_training(file_name: str, 
                      n_epochs: int, 
                      start_epoch: int,
@@ -279,7 +284,7 @@ def listener():
         q_acc.task_done()
         q_loss.task_done()
         q_epoch.task_done()
-
+"""
     
 #def simple_model_creator(conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
 def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv_layer_size = 32, lin_layer_size = 32):
@@ -453,9 +458,9 @@ def complex_model_creator(model_name):
 
     return draw_complex_model()
 
-    
+"""    
 def start_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
-    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
     accs, losses, epochs = [], [], []
     
     if model_name == None:
@@ -483,6 +488,7 @@ def start_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
              seed=seed, 
              loss_fn=loss_fn)
     # return jsonify({"success": True})
+"""
 
 # @app.route("/stop_training", methods=["POST"])
 def stop_training():
@@ -495,9 +501,10 @@ def stop_training():
         print("Training breaks!")
         q_text.put("Training breaks!")
     
-
+"""
 def resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
-    global break_signal, epoch, q_acc, q_loss, q_epoch, q_stop_signal
+    global break_signal, epoch, q_acc, q_loss, q_epoch, q_stop_signal, accs, losses, epochs
+    accs, losses, epochs = [], [], []
     manual_seed(seed)
     np.random.seed(seed)
     break_signal = False
@@ -532,35 +539,34 @@ def resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
              seed=seed, 
              loss_fn=loss_fn)
     return gr.update()
+"""
 
+def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
+    if model_name == None:
+        q_text.put("Select a model first please!")
 
-# def new_resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
-#     global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
-#     accs, losses, epochs = [], [], []
+    global q_acc, q_loss, stop_signal, q_stop_signal, q_break_signal, epoch, epoch_losses, loss, current_model, accs, losses, epochs
+    accs, losses, epochs = [], [], []
+    manual_seed(seed)
+    np.random.seed(seed)
+    print("Starting training with:")
+    print(f"Seed: {seed}")
+    print(f"Learning rate: {lr}")
+    print(f"Number of epochs: {n_epochs}")
+    print(f"Batch size: {batch_size}")
+    prepare_training(file_name=model_name[:(len(model_name)-3)],
+             n_epochs=n_epochs,
+             batch_size=batch_size,
+             q_acc=q_acc,
+             q_loss=q_loss,
+             q_epoch=q_epoch,
+             q_break_signal = q_break_signal,
+             q_stop_signal=q_stop_signal,
+             learning_rate=lr,
+             seed=seed, 
+             loss_fn=loss_fn)
+    return gr.update() #jsonify({"success": True})
 
-#     manual_seed(seed)
-#     np.random.seed(seed)
-
-#     print("Starting training with:")
-#     print(f"Seed: {seed}")
-#     print(f"Learning rate: {lr}")
-#     print(f"Number of epochs: {n_epochs}")
-#     print(f"Batch size: {batch_size}")
-
-#     prepare_training(file_name=model_name[:(len(model_name)-3)],
-#              n_epochs=n_epochs,
-#              batch_size=batch_size,
-#              q_acc=q_acc,
-#              q_loss=q_loss,
-#              q_epoch=q_epoch,
-#              q_break_signal = q_break_signal,
-#              q_stop_signal=q_stop_signal,
-#              learning_rate=lr,
-#              seed=seed, 
-#              loss_fn=loss_fn)
-#     return gr.update() #jsonify({"success": True})
-
-#app.route("/revert_to_last_epoch", methods=["GET", "POST"])
 def revert_to_last_epoch():
     global break_signal, epoch, loss, lr, q_epoch
     print("We're at revert")
@@ -590,99 +596,6 @@ def revert_to_last_epoch():
         q_text.put("You couldn't revert from epoch 0! You can resume(restart) from epoch 0 now.")
     #loss_img_url = loss_plot_url()
     return gr.update()
-
-
-# @app.route("/update_seed", methods=["POST"])
-def update_seed():
-    global seed
-    seed = int(request.form["seed"])
-    return jsonify({"seed": seed})
-
-#adjust learning rate 
-# @app.route("/update_learningRate", methods=["POST"])
-def update_learningRate():
-    global lr
-    lr = float(request.form["lr"])
-    return jsonify({"lr": lr})
-
-#adjust number of epochs
-# @app.route("/update_numEpochs", methods=["POST"])
-def update_numEpochs():
-    global n_epochs
-    n_epochs = int(request.form["n_epochs"])
-    return jsonify({"n_epochs": n_epochs})
-
-#adjust batch_size
-# @app.route("/update_batch_size", methods=["POST"])
-def update_batch_size():
-    global batch_size
-    batch_size = int(request.form["batch_size"])
-    return jsonify({"batch_size": batch_size})
-
-#adjust loss_fn
-#@app.route("/update_loss_fn", methods=["POST"])
-def update_loss_fn():
-    global loss_fn
-    loss_dict = {"CrossEntropy":nn.CrossEntropyLoss(),
-                 "NegativeLog":nn.NLLLoss(),
-                 "L1":nn.L1Loss(),
-                 "MSE":nn.MSELoss()}
-    loss_fn = loss_dict[str(request.form["loss_fn"])]
-    return jsonify({"success": True})
-
-#@app.route("/get_accuracy")
-def get_accuracy():
-    global acc
-    return jsonify({"acc": acc})
-
-# @app.route("/get_loss")
-def get_loss():
-    global loss
-    return jsonify({"loss": loss})
-
-# @app.route("/get_epoch")
-def get_epoch():
-    global epoch
-    return jsonify({"epoch": epoch})
-
-# @app.route("/get_epoch_losses")
-def get_epoch_losses():
-    global epoch_losses
-    return jsonify({"epoch_losses": epoch_losses})
-
-# @app.route("/get_dict")
-def get_dict():
-    dictTest = dict({"one": "1", "two": "2"})
-    return jsonify({"dictTest": dictTest})
-
-# # @app.route("/get_loss_image")
-# def get_loss_image():
-#     global loss_img_url
-#     return jsonify({"loss_img_url": loss_img_url})
-
-"""
-if __name__ == "__main__":
-    host = "127.0.0.1"
-    port = 5001
-    print("App started")
-    threading.Thread(target=listener, daemon=True).start()
-    webbrowser.open_new_tab(f"http://{host}:{port}")
-    socketio.run(app, host=host, port=port, debug=True)
-"""
-
-def get_loss():
-    global loss, q_loss
-    if q_loss is not None and q_loss.qsize() > 0:
-        loss = q_loss.get()
-        q_loss.task_done()
-    return loss
-
-def get_accuracy():
-    global acc, q_acc
-    if q_acc is not None and q_acc.qsize() > 0:
-        acc = q_acc.get()
-        q_acc.task_done()
-    return acc
 
 def get_statistics():
     global loss, q_loss, acc, q_acc, epoch, q_epoch, accs, losses, epochs
@@ -742,7 +655,7 @@ def make_plot():
                                            x="Epochs", y="Values", color="Labels")
     return plot
 
-def load_graph(file_names: [str]):
+def load_graph(file_names):
     global labels_rp, epochs_rp, values_rp
     labels_rp, epochs_rp, values_rp = [], [], []
     for file_name in file_names:
@@ -757,112 +670,33 @@ def load_graph(file_names: [str]):
         epochs_rp = np.append(epochs_rp, np.concatenate([plots[0], plots[0]]))
         values_rp = np.append(values_rp, np.concatenate([plots[1], plots[2]]))
 
-        #print(plots[-1])
-        #print(plots[-1][0])
-        #print(plots[-1][1])
-        #print(plots[-1][2])
-        #max_len = min([len(plots[-1][0]), len(plots[-1][1])])
-        #print(["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)])
-        #print(plots[-1][2] + plots[-1][1])
-        #print(plots[-1][0] + plots[-1][0])
-        #plot = gr.LinePlot(value=pd.DataFrame({"Labels": np.concatenate([["Accuracy" for _ in range(max_len)], ["Loss" for _ in range(max_len)]]), "Values": np.concatenate([plots[-1][2], plots[-1][1]]), "Epochs": np.concatenate([plots[-1][0], plots[-1][0]])}), x="Epochs", y="Values", color="Labels")
-
-    #plot = gr.LinePlot(value=pd.DataFrame({"Labels": labels_rp, "Values": values_rp, "Epochs": epochs_rp}), x="Epochs", y="Values", color="Labels")
-    #global visible_plots
-    #visible_plots = plot
-
-    #return plot
-
-
-#def make_example_graphs():
-#    file = cv2.FileStorage("test.yml", cv2.FILE_STORAGE_WRITE)
-#    file.write("graph", )
-#    file.release()
-
-"""
-mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=None)
-mnist_testset = datasets.MNIST(root='./data', train=False, download=True, transform=None)
-
-x_train=mnist_trainset.data.numpy()
-x_test=mnist_testset.data.numpy()
-y_train=mnist_trainset.targets.numpy()
-y_test=mnist_testset.targets.numpy()
-
-x_train=x_train.reshape(60000,784)/255.0
-x_test=x_test.reshape(10000,784)/255.0
-
-mlp = MLPClassifier(hidden_layer_sizes=(32,32))
-mlp.fit(x_train, y_train)
-
-print("Training Accuracy:", mlp.score(x_train, y_train))
-print("Testing Accuracy:", mlp.score(x_test, y_test))
-
-def predictIt(img):
-    img = img.reshape(1,784)/255.0
-    prediction = mlp.predict(img)[0]
-    return int(prediction)
-"""
-
 def predict(path, img):
-    #print(img)
-    #print(img.shape)
     img = img['composite']
-    #img = img.reshape((28,28))
-    #print(img)
-    #print(img.shape)
 
     new_img = []
     for x in range(len(img)):
         new_img.append([])
         for y in range(len(img[x])):
-            #if img[x][y][3] == 0:
-            #    new_img[x].append(255)
-            #else:
-            #    new_img[x].append(0)
             new_img[x].append(img[x][y][3])
     img = new_img
     
-    #print(img)
-
     model = Adjustable_model()
-    #model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
-    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
     checkpoint = load_checkpoint(model, path)
     model = Adjustable_model(linear_layers = checkpoint['lin_layers'], convolutional_layers = checkpoint['conv_layers'])
-    #opt = SGD(model.parameters(), lr=learning_rate, momentum=0.5)
-    #model = load_checkpoint(model, path)
     model.load_state_dict(checkpoint['model_state_dict'])
-    #model.eval()
-    #print(model)
 
-    #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
-    #img = img.resize((28,28))
     img = np.array(cv2.resize(np.array(img).astype('uint8'), (28,28)))
-    #print(img)
-    transform = transforms.Compose([transforms.ToTensor()]) #transforms.Resize(28),
+    transform = transforms.Compose([transforms.ToTensor()])
     img_tensor = transform(img).unsqueeze(0)
-    #print(img_tensor.shape)
-    #img_tensor = img_tensor.view(img_tensor.size(0), -1)
-    #img_tensor = torch.tensor(img, dtype=float)
-    #img_tensor = img_tensor.float()
-    #print(img_tensor) 
-    #print(img_tensor.shape)
-
-    #img = np.array(cv2.resize(np.array(img), (28,28))) #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
     prediction = model(img_tensor).data
-    #print(prediction)
     pred_out, pred_index = torch.max(prediction, 1)
-    #print(pred_out, pred_index)
-    return pred_index.item() #str(model(np.array(cv2.resize(np.array(img['layers'][0]), (28,28)))))
-
-    img = np.array(cv2.resize(np.array(img), (28,28))) #img.reshape((1, 28, 28, 1)).astype('float32') / 255.0
-    return model(torch.from_numpy(img)) #str(model(np.array(cv2.resize(np.array(img['layers'][0]), (28,28)))))
+    return pred_index.item()
 
 def aaa():
     return np.zeros((28,28))
 
-# def bbb():
-#     return gr.update()
+def bbb():
+    return gr.update(visible=True)
 
 visibleee = True
 embed_html = '<iframe width="560" height="315" src="https://www.youtube.com/embed/bfmFfD2RIcg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
@@ -871,7 +705,7 @@ def clear_saved_files():
     app_dir = os.path.dirname(os.path.abspath(__file__)) 
     for root, dirs, files in os.walk(app_dir):
         for file in files:
-            if file.endswith(".pt"):
+            if file.endswith(".pt") or (file.endswith(".yml") and file != "env.yml"):
                 os.remove(os.path.join(root, file))
 
 with gr.Blocks() as demo:
@@ -1066,96 +900,46 @@ with gr.Blocks() as demo:
                             in_loss_fn = gr.Dropdown(label="Loss Function", value="CrossEntropyLoss", choices=["CrossEntropyLoss", "NLLLoss", "MSELoss", "L1Loss"])
                         with gr.Tab("info"):
                             gr.Markdown("A <b>loss function</b> measures how well a model performs on a dataset by comparing its predictions to the actual target values. It quantifies the difference between predicted outputs and ground truth labels. The goal during training is to minimize this difference.")
-                    with gr.Row():
-                        with gr.Column(min_width=100):
-                            button_start = gr.Button(value="Start")
-                            #button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=None)
-                            #button_start = gr.Button(value="Start")
-                            #button_start.click(start_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
-                        with gr.Column(min_width=100):
-                            button_stop = gr.Button(value="Stop")
-                            #button_stop.click(stop_training, inputs=None, outputs=None)
-                        with gr.Column(min_width=100):
-                           button_resume = gr.Button(value="Continue")
-                           #button_resume.click(resume_training, inputs=[in_seed, in_learning_rate, in_batch_size, in_n_epochs], outputs=None)
-                    with gr.Row():
-                        button_revert = gr.Button(value="Revert to last epoch")
-                        button_revert.click(revert_to_last_epoch, inputs=None, outputs=None)
-                    with gr.Row():
-                        text_component = gr.Markdown()
-            
-            # button_start.click(bbb, inputs=None, outputs=spinner)
-            button_start.click(start_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
-            button_stop.click(stop_training, inputs=None, outputs=None)
-            button_resume.click(resume_training,inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
                     
             with gr.Column():
                 with gr.Tab("Training"):
                     gr.Markdown("<h1>Training</h1>")
+                    with gr.Row():
+                        with gr.Column(min_width=100):
+                            button_start = gr.Button(value="Start/Continue")
+                        with gr.Column(min_width=100):
+                            button_stop = gr.Button(value="Stop")
+#                        with gr.Column(min_width=100):
+#                           button_resume = gr.Button(value="Continue")
+#                    with gr.Row():
+#                        button_revert = gr.Button(value="Revert to last epoch")
+#                        button_revert.click(revert_to_last_epoch, inputs=None, outputs=None)
+                    with gr.Row():
+                        text_component = gr.Markdown()
+            
+                    #button_start.click(bbb, inputs=None, outputs=spinner)
+                    button_start.click(new_resume_training, inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
+                    button_stop.click(stop_training, inputs=None, outputs=None)
+                    #button_resume.click(resume_training,inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
+
                     training_plot = gr.LinePlot()
                     training_info = gr.Markdown()
-                    #out_accuracy = gr.Textbox(label="Accuracy")
-                    #out_loss = gr.Textbox(label="Loss")
                     gr.Markdown("Choose which models you want to display in the plot:")
                     select_plot = gr.FileExplorer("**/*.yml", file_count="multiple")
                     select_plot.change(load_graph, inputs=[select_plot], outputs=[])
-                    #select_plot = gr.Dropdown([], value=[], multiselect=True, label="Models to plot", info="Select model training graphs to display in the plot")
                 with gr.Tab("Testing"):
                     gr.Markdown("<h1>Testing</h1>")
                     gr.Markdown("Here you can test if the trained model recognizes the number you draw.")
-                    #playground_in = gr.Sketchpad(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True) 
-                    #playground_in = gr.Sketchpad(image_mode='L', invert_colors=True, source='canvas', type="numpy") #shape = (28, 28), crop_size="1:1", 
-                    #playground_in = gr.Paint(crop_size=("1:1"), image_mode='L', type="numpy", interactive=True)
                     buttoton = gr.Button(value="Magically fix Sketchpad")
-                    #playground_in = gr.ImageEditor(value={'layers': [np.zeros((28,28))], 'background': None, 'composite': None}, image_mode='L', type="numpy", interactive=True)
                     playground_in = gr.Sketchpad(value=np.zeros((28,28)), crop_size=("1:1"), type="numpy", interactive=True)
                     button_test = gr.Button(value="Test")
                     playground_out = gr.Text(label="Result")
                     button_test.click(predict, inputs=[select_model, playground_in], outputs=[playground_out])
                     buttoton.click(aaa, inputs=None, outputs=[playground_in])
 
-                """
-                with gr.Tab("Playground"):
-                    gr.Interface(fn=predictIt, 
-                                 inputs = gr.Sketchpad(shape = (28, 28), image_mode='L', invert_colors=True, source='canvas'), 
-                                 outputs = "label")
-                                 """
-    
-     
-    # def progress(x, progress = gr.Progress()):
-    #     for epoch in range(10):
-    #         progress(0, desc = "test...")
-    #         time.sleep(0.1)
-    #     return x
-    
-    # Add the row to the existing column
-    # iface.add(text_component)
-        
-    #playground_in.value = np.zeros((2800,2800))
-
-    # # Launch the interface
-    # iface.launch()
-    #demo.load(get_accuracy, None, out_accuracy, every=1)
-    #demo.load(get_loss, None, out_loss, every=1)
-
     dep1 = demo.load(get_statistics, None, training_info, every=0.5)
     dep2 = demo.load(make_plot, None, training_plot, every=0.5)
     dep3 = demo.load(get_text, None, text_component, every=0.5)
-    #dep4 = demo.load(lambda :gr.update(visible=True), None, select_model, every=0.5)
-    # dep2 = demo.load(make_accuracy_plot, None, training_plot, every=0.5)
-    # dep3 = demo.load(make_loss_plot, None, training_plot, every=0.5)
-    
-    #dep3 = demo.load(simple_model_drawer, None, network_plot)
-    #demo.load(listener, None, None, every=1)
-    #dep1 = demo.load(get_accuracy, None, None, every=0.5)
-    #dep2 = demo.load(get_loss, None, None, every=0.5)
-    #dep3 = demo.load(listener, None, None, every=0.5)
-
-    #button_stop.click(None, None, None, cancels=[dep1, dep2])
-    
-    #period.change(get_accuracy_once, None, None, every=0.5, cancels=[dep])
-    #dep = demo.load(get_plot, None, plot, every=0.5)
-    #period.change(get_plot, period, plot, every=0.5, cancels=[dep])
 
 if __name__ == "__main__":
     webbrowser.open_new_tab(f"http://127.0.0.1:7860/")
