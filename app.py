@@ -5,6 +5,7 @@ import base64
 import time
 from PIL import Image 
 import io
+from itertools import chain
 
 from io import BytesIO
 from matplotlib.figure import Figure
