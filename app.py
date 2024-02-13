@@ -447,7 +447,6 @@ def complex_model_creator(model_name):
         'conv_layers': conv_layers
         # Add any other information you want to save
     }
-    #timestr = time.strftime("%Y%m%d-%H%M%S")
     path=f"{model_name}.pt"
     print(current_model)
     torch.save(checkpoint, path)
@@ -491,17 +490,11 @@ def start_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
     # return jsonify({"success": True})
 """
 
-# @app.route("/stop_training", methods=["POST"])
 def stop_training():
     global break_signal, q_stop_signal
     q_stop_signal.put(True)
-    if not break_signal:
-        # q_stop_signal.put(True)
-        # set block to true to wait for item if the queue is empty
-        break_signal = q_break_signal.get(block=True)
-    if break_signal:
-        print("Training breaks!")
-        q_text.put("Training breaks!")
+    print("Training breaks!")
+    q_text.put("Training breaks!")
     
 """
 def resume_training(model_name, seed, lr, batch_size, n_epochs, loss_fn):
@@ -651,25 +644,7 @@ labels_ap, epochs_ap, values_ap = [], [], []
 
 def make_plot():
     global accs, losses, epochs, labels_rp, epochs_rp, values_rp, labels_ap, epochs_ap, values_ap
-
-    #training_steps = []
     max_len = min([len(accs), len(losses), len(epochs)])
-    #for j in range(2):
-    #    for i in range(max_len):
-    #        training_steps.append(i + 1)
-    #plot = gr.LinePlot(value=pd.DataFrame({"Epoch": training_steps, "Accuracy": accs, "Loss": losses}), x="Epoch", y="Accuracy")
-    #plot = gr.LinePlot(value=pd.DataFrame({"Labels": ["Accuracy" for _ in range(max_len)] + ["Loss" for _ in range(max_len)], "Values": accs[:max_len] + losses[:max_len], "Epochs": training_steps}), x="Epochs", y="Values", color="Labels")
-    
-    """
-    out_labels = np.concatenate([np.array(["Accuracy - Current Run" for _ in range(max_len)] + ["Loss - Current Run" for _ in range(max_len)]), labels_rp])
-    out_values = np.concatenate([np.array(accs[:max_len] + losses[:max_len]), values_rp])
-    out_epochs = np.concatenate([np.array(epochs[:max_len] + epochs[:max_len]), epochs_rp])
-    print(len(out_labels), len(out_values), len(out_epochs))
-    print(out_labels)
-    print(out_values)
-    print(out_epochs)
-    """
-
     plot = gr.LinePlot(value=pd.DataFrame({"Labels": np.concatenate([np.array(["Accuracy - Current Run" for _ in range(max_len)] + ["Loss - Current Run" for _ in range(max_len)]), labels_rp]), 
                                            "Values": np.concatenate([np.array(accs[:max_len] + losses[:max_len]), values_rp]), 
                                            "Epochs": np.concatenate([np.array(epochs[:max_len] + epochs[:max_len]), epochs_rp])}), 
@@ -684,7 +659,6 @@ def load_graph(file_names):
         plots = np.array(file.getNode("Plot").mat())
         if plots.size == 1:
             plots = np.empty((3, 0), float)
-        #print(plots)
         data_points = len(plots[0])
         basename = os.path.basename(file_name)
         labels_rp = np.append(labels_rp, np.concatenate([[f"Loss - {basename}" for _ in range(data_points)], [f"Accuracy - {basename}" for _ in range(data_points)]]))
@@ -765,12 +739,9 @@ with gr.Blocks() as demo:
                         in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1, info="influence the capacity and learning ability of the neural network")
                         button_display = gr.Button(value="Display Model")
                         button_create_model = gr.Button(value="Create Model")                        
-                        network_img = gr.Image(type='filepath', value='network.png')#type="pil")
+                        network_img = gr.Image(type='filepath', value='network.png')
                         button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)
-                        #network_plot = gr.Plot()                       
-                        
-                        button_display.click(make_img, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)          
-                        #gr.Interface(make_img, gr.Image(type="pil", value=None), "image")
+                        button_display.click(make_img, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)     
                         
                     with gr.Tab("Advanced Model Creator"):
                         gr.Markdown("Only recommended to people with a good understanding of CNNs.")
@@ -798,8 +769,7 @@ with gr.Blocks() as demo:
                             button_add_conv_layer.click(add_conv_layer, inputs=[in_conv_cells, in_kernel_size, in_padding, in_stride, in_conv_output_fct, in_2Dpooling], outputs=layer_box_img)
                             button_delete_conv_layer.click(delete_last_conv_layer, outputs=layer_box_img)
                             button_add_lin_layer.click(add_lin_layer, inputs=[in_lin_cells, in_lin_output_fct], outputs=layer_box_img)
-                            button_delete_lin_layer.click(delete_last_lin_layer, outputs=layer_box_img)                        
-                        #with gr.Row():
+                            button_delete_lin_layer.click(delete_last_lin_layer, outputs=layer_box_img)
                         button_complex_create_model = gr.Button(value="Create Model")
                         network_img = gr.Image(type='filepath', value='network.png')
                         button_complex_create_model.click(complex_model_creator, inputs=[in_model_name], outputs=network_img)
@@ -870,7 +840,7 @@ with gr.Blocks() as demo:
                 with gr.Tab("Testing"):
                     gr.Markdown("<h1>Testing</h1>")
                     gr.Markdown("Here you can test if the trained model recognizes the number you draw.")
-                    buttoton = gr.Button(value="Magically fix Sketchpad")
+                    buttoton = gr.Button(value="Fix/Empty Sketchpad")
                     playground_in = gr.Sketchpad(value=np.zeros((28,28)), crop_size=("1:1"), type="numpy", interactive=True)
                     button_test = gr.Button(value="Test")
                     playground_out = gr.Text(label="Result")

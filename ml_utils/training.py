@@ -99,10 +99,8 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
              file_name: str = None,
              lin_layers: int = 0, conv_layers: int = 0):
     train_loader, test_loader = get_data_loaders(batch_size=batch_size)
-    stop = False
     if cuda:
         model.cuda()
-    stop_signal = False
     timestr = time.strftime("%Y%m%d-%H%M%S")
 
     file = cv2.FileStorage(f"{file_name}.yml", cv2.FILE_STORAGE_READ)
@@ -120,16 +118,13 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         for epoch in plots[0]:
             q_epoch.put(epoch)
 
-    #counter = 20
     for epoch in range(start_epoch, n_epochs):
-        #q_epoch.put(epoch)
 
         if not q_stop_signal.empty():
             if q_stop_signal.get():
                 with q_stop_signal.mutex:
                     q_stop_signal.queue.clear()
                 q_break_signal.put(True)
-                #stop=True
                 break
 
         print(f"Epoch {epoch} starts...")
@@ -161,18 +156,7 @@ def training(model: Module, optimizer: Optimizer, loss_fn: nn, cuda: bool, n_epo
         file.write("Name", model_name)
         file.write("Parent", file_name)
         file.release()
-    """
-        if q_stop_signal.empty():
-            continue
-        if q_stop_signal.get():
-            with q_stop_signal.mutex:
-                q_stop_signal.queue.clear()
-            q_break_signal.put(True)
-            #stop=True
-            break
-        #if stop:
-        #    print("successfully stopped")
-    """
+
     if cuda:
         empty_cache()
 
