@@ -599,8 +599,6 @@ def revert_to_last_epoch():
     time.sleep(10)
     try:
         q_epoch.put(epoch-1) 
-        q_loss.put(epoch_losses[epoch-1]) 
-        loss = q_loss.get()
         epoch = q_epoch.get() 
         for i in range(epoch+1, n_epochs):
             while epoch_losses.get(i) is not None:
