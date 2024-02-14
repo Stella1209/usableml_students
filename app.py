@@ -731,7 +731,7 @@ with gr.Blocks() as demo:
 
                     gr.Markdown("Your models will be stored as files every epoch. Because you can revert to an earlier epoch and therefore e.g. train the second epoch multiple times, the filename format is <b>modelName_date-time_lastEpoch.pt</b> (date and time refer to the point in time button start was clicked). <br/> Untrained models do not have an epoch number at the end.")
 
-                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single", interactive=True)
+                    select_model = gr.FileExplorer("**/*.pt", label="Select Model", file_count="single", interactive=True, show_label=False)
                     button_refresh.click(None, js="window.location.reload()")
                 
                 with gr.Tab("Create Model"):                    
@@ -744,7 +744,7 @@ with gr.Blocks() as demo:
                         in_cells_per_lin = gr.Slider(label="Cells per linear layer", value=32, minimum=1, maximum=128, step=1, info="influence the capacity and learning ability of the neural network")
                         button_display = gr.Button(value="Display Model")
                         button_create_model = gr.Button(value="Create Model")                        
-                        network_img = gr.Image(type='filepath', value='network.png')
+                        network_img = gr.Image(type='filepath', value='network.png', show_label=False)
                         button_create_model.click(simple_model_creator, inputs=[in_model_name, in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)
                         button_display.click(make_img, inputs = [in_convolutional_layers, in_linear_layers, in_cells_per_conv, in_cells_per_lin], outputs=network_img)     
                         
@@ -776,7 +776,7 @@ with gr.Blocks() as demo:
                             button_add_lin_layer.click(add_lin_layer, inputs=[in_lin_cells, in_lin_output_fct], outputs=layer_box_img)
                             button_delete_lin_layer.click(delete_last_lin_layer, outputs=layer_box_img)
                         button_complex_create_model = gr.Button(value="Create Model")
-                        network_img = gr.Image(type='filepath', value='network.png')
+                        network_img = gr.Image(type='filepath', value='network.png', show_label=False)
                         button_complex_create_model.click(complex_model_creator, inputs=[in_model_name], outputs=network_img)
 
 
@@ -837,10 +837,10 @@ with gr.Blocks() as demo:
                     button_stop.click(stop_training, inputs=None, outputs=None)
                     #button_resume.click(resume_training,inputs=[select_model, in_seed, in_learning_rate, in_batch_size, in_n_epochs, in_loss_fn], outputs=spinner)
 
-                    training_plot = gr.LinePlot()
+                    training_plot = gr.LinePlot(show_label=False)
                     training_info = gr.Markdown()
                     gr.Markdown("Choose which models you want to display in the plot:")
-                    select_plot = gr.FileExplorer("**/*.yml", file_count="multiple")
+                    select_plot = gr.FileExplorer("**/*.yml", file_count="multiple", show_label=False)
                     select_plot.change(load_graph, inputs=[select_plot], outputs=[])
                 with gr.Tab("Testing"):
                     gr.Markdown("<h1>Testing</h1>")
