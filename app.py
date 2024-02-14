@@ -294,11 +294,12 @@ def simple_model_creator(model_name, conv_layer_num = 2, lin_layer_num = 1, conv
         print("model needs a name")
         model_name = "unnamed"
     conv_layers_proto =  [{'size' : conv_layer_size, 'kernel_size' : 8, 'stride' : 2, 'padding' : 2},
-                            {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 1, 'padding' : 0}]
+                            {'size' : conv_layer_size, 'kernel_size' : 4, 'stride' : 1, 'padding' : 0},
+                            {'size' : conv_layer_size, 'kernel_size' : 3, 'stride' : 1, 'padding' : 1}]
     if conv_layer_num > len(conv_layers_proto):
         conv_layers_proto = conv_layers_proto + [{'size' : conv_layer_size} for i in range(conv_layer_num - len(conv_layers_proto))]
     lin_layers = [{"linear_cells":lin_layer_size} for i in range(lin_layer_num)]
-    conv_layers = [conv_layers_proto[i % 2] for i in range(conv_layer_num)]
+    conv_layers = [conv_layers_proto[i % 3] for i in range(conv_layer_num)]
     
     current_model = Adjustable_model(linear_layers = lin_layers, convolutional_layers = conv_layers)
     checkpoint = {
@@ -845,7 +846,7 @@ with gr.Blocks() as demo:
                 with gr.Tab("Testing"):
                     gr.Markdown("<h1>Testing</h1>")
                     gr.Markdown("Here you can test if the trained model recognizes the number you draw.")
-                    buttoton = gr.Button(value="Fix/Empty Sketchpad")
+                    buttoton = gr.Button(value="Activate & start Sketechpad")
                     playground_in = gr.Sketchpad(value=np.zeros((28,28)), crop_size=("1:1"), type="numpy", interactive=True)
                     button_test = gr.Button(value="Test")
                     playground_out = gr.Text(label="Result")
